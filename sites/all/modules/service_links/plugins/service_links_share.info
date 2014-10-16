@@ -1,0 +1,7 @@
+name = "Service Links Share"
+description = "Provide the integration between Service Links and Share module"
+core = 6.x
+package = Service Links
+dependencies[] = service_links
+dependencies[] = share
+dependencies[] = share_widget

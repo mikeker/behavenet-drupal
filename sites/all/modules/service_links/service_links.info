@@ -1,0 +1,5 @@
+name = "Service links"
+description = "Module engine for add various service links about sharing networks to nodes."
+core = 6.x
+php = 5.1
+package = Service Links

@@ -1,0 +1,6 @@
+name = "Hungarian Services"
+description = "Provide the Hungarian Service: iWiW"
+core = 6.x
+package = Service Links - Services
+dependencies[] = service_links
+
