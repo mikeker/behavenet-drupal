@@ -4,9 +4,9 @@ package = Modal frame
 dependencies[] = modalframe
 core = 6.x
 
-; Information added by  packaging script on 2013-11-19
-version = "6.x-1.8"
+; Information added by Drupal.org packaging script on 2014-02-08
+version = "6.x-1.9"
 core = "6.x"
 project = "modalframe"
-datestamp = "1384870412"
+datestamp = "1391878409"
 

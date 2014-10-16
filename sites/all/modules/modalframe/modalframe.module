@@ -89,6 +89,11 @@ function modalframe_preprocess_page(&$variables) {
       $variables['template_files'] = array();
     }
     $variables['template_files'][] = 'modalframe-page';
+    
+    // If a title is set we need to assure that it is filtered.
+    if (isset($variables['title'])) {
+      $variables['title'] = check_plain($variables['title']);
+    }
   }
 }
 
