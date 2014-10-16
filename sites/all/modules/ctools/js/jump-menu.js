@@ -8,12 +8,8 @@
     $('.ctools-jump-menu-change:not(.ctools-jump-menu-processed)')
       .addClass('ctools-jump-menu-processed')
       .change(function() {
-        var loc = decodeURIComponent($(this).val());
-        var urlArray = loc.split('::');
-        if (urlArray[1]) {
-          location.href = urlArray[1];
-        }
-        else {
+        var loc = $(this).val();
+        if (loc) {
           location.href = loc;
         }
         return false;
@@ -26,12 +22,8 @@
 
         // Find our sibling value.
         var $select = $(this).parents('form').find('.ctools-jump-menu-select');
-        var loc = decodeURIComponent($select.val());
-        var urlArray = loc.split('::');
-        if (urlArray[1]) {
-          location.href = urlArray[1];
-        }
-        else {
+        var loc = $select.val();
+        if (loc) {
           location.href = loc;
         }
         return false;

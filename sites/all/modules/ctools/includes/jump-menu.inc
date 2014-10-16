@@ -116,17 +116,5 @@ function ctools_jump_menu($form_state, $select, $options = array()) {
  * This is normally only invoked upon submit without javascript enabled.
  */
 function ctools_jump_menu_submit($form, &$form_state) {
-  // If the path we are redirecting to contains the string :: then treat the
-  // the string after the double colon as the path to redirect to.
-  // This allows duplicate paths to be used in jump menus for multiple options.
-  $redirect_array = explode('::', $form_state['values']['jump']);
-
-  if (isset($redirect_array[1]) && !empty($redirect_array[1])) {
-    $redirect = $redirect_array[1];
-  }
-  else {
-    $redirect = $form_state['values']['jump'];
-  }
-
-  $form_state['redirect'] = $redirect;
+  $form_state['redirect'] = $form_state['values']['jump'];
 }
