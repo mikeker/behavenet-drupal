@@ -1,0 +1,598 @@
+@import "compass";
+@import "zen";
+
+// Defaults
+$space-v: 10px;
+$space-h: 10px;
+$space: 10px;
+$highlight: #EAF3F8;
+$background: #F6F6F6;
+$contrast: #7E0E00;
+$contrast-dark: #535353;
+
+/*
+ * General styling
+ */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: normal;
+}
+a:link, a:visited, a:focus, a:active {
+  text-decoration: none;
+  color: $contrast;
+}
+a:hover {
+  text-decoration: underline;
+}
+select {
+  /* Keep drop downs from getting out of hand */
+  width: 99%;
+  max-width: 600px;
+}
+body {
+  font-size: 90%;
+}
+.view-content {
+  clear:left;
+}
+table {
+  border-collapse: collapse;
+}
+table, th, td {
+  border: 1px solid #ccc;
+}
+thead th {
+  text-align: center;
+  padding: ($space-v / 2) $space-h;
+}
+td {
+  padding: ($space-v / 2) $space-h;
+}
+#page-title, .page-title {
+  margin-top: $space-v;
+  margin-bottom: $space-v;
+}
+.comments-list {
+  margin-top: (2 * $space-v);
+}
+.comment-form {
+  max-width: 700px;
+}
+.pane-content {
+  margin-top: .667em;
+}
+
+/*
+ * Ad styling
+ */
+/* Good Therapy now showing centered on Resources page */
+#mini-panel-goodtherapy_250_160 {
+  margin-right: 300px;
+}
+#gt-widget {
+  margin: 0 auto;
+}
+#page-main-callout {
+  .panel-region-separator {
+    clear: both;
+  }
+  .behavenet-ads {
+    // Remove padding in sidebars for ads
+    margin-left: -10px;
+  }
+}
+
+
+/*
+ * Search box
+ */
+#views-exposed-form-search-default {
+  width: 310px;
+}
+#views-exposed-form-search-default .views-exposed-form .views-exposed-widget {
+  padding: 0;
+}
+#views-exposed-form-search-default input {
+  margin: 0;
+}
+#views-exposed-form-search-default .views-widget-filter-keys input {
+  width: 230px;
+}
+#views-exposed-form-search-default #edit-submit-search {
+  width: 70px;
+}
+
+/*
+ * Autocomplete window
+ */
+#autocomplete {
+  z-index: 150;   /* Higher than right callout */
+  width: 660px;
+}
+
+/*
+ * Page footer
+ *
+ * NOTE: as per Wikipedia-like styling, the page footer does not go below the
+ * left sidebar, but under the main content area
+ */
+#page-footer {
+  margin-top: 2 * $space-v;
+  margin-bottom: 2 * $space-v;
+  text-align: center;
+  font-size: 80%;
+}
+
+/*
+ * Main content area
+ */
+#page-main h2 {
+  margin-bottom: 0;
+}
+
+/*
+ * Show credits in italics
+ */
+.field-field-people-credit
+{
+  font-style: italic;
+}
+
+/*
+ * Find/Follow us links
+ */
+.follow-us-links {
+  margin-top: ($space-v * 2);
+  margin-bottom: $space-v;
+  text-align: center;
+}
+.follow-us-links img {
+  margin-bottom: ($space-v / 2);
+}
+
+
+/*
+ * Terms and Related content display for People, Movies, Books
+ */
+.terms-and-related-content {
+  margin-top: $space-v;
+  margin-bottom: $space-v;
+}
+
+/*
+ * Behavenet admin links
+ */
+.pane-content {
+  position: relative;
+}
+.behavenet-admin-links {
+  display: none;
+  position: absolute;
+  top: 0; left: 0;
+  font-size: 85%;
+  z-index: 200;
+  padding: ($space-v / 2) ($space-h / 2);
+}
+.behavenet-admin-links-highlight .panel-panel {
+  background-color: $highlight;
+}
+.behavenet-admin-links-active {
+  display: block;
+}
+
+
+/*
+ * Menus
+ */
+div.admin-links,
+div.views-admin-links,
+div.panel-pane:hover div.panel-hide
+{
+  display: none
+}
+/* Except for the edit node links on the Daily Tweets */
+.daily-tweets:hover div.panel-hide {
+  display: block;
+}
+
+div.tabs {
+  // page-based contextual links
+  clear: left;
+}
+div.main-tabs {
+  a {
+    font-weight: bold;
+  }
+}
+ul.menu {
+  overflow: hidden;
+  padding-left: 0;
+}
+ul.menu li {
+  float: left;
+  list-style: none;
+}
+ul.menu li a {
+  text-decoration: none;
+  padding: ($space-v / 2) $space-h;
+  display: block;
+}
+ul.menu li a:hover {
+  background-color: $highlight;
+}
+
+
+/*
+ * Left hand sidebar collapsible menu
+ */
+.behavenet-collapsible-menu ul {
+  list-style: none;
+  margin-left: -15px;   /* Push to far left of div so we have as much room as possible */
+}
+.behavenet-collapsible-menu li.hasChildren {
+  /* Removes space added by arrow character */
+  margin-left: -14px;
+}
+.behavenet-collapsible-menu li.hasChildren ul {
+  margin-left: 0;
+}
+.behavenet-collapsible-menu li {
+  margin-bottom: ($space-h / 2);
+  white-space: nowrap;
+}
+
+/*
+ * YouTube (and other outside media) display
+ */
+.field-field-outside-video, .views-field-field-outside-video-embed {
+  margin-top: 2 * $space-v;
+}
+
+/*
+ * Books and Movies view (Media view)
+ */
+.view-Movies .attachment-after {
+  margin-top: $space-h;
+}
+div.field-type-asin {
+  border: 0;
+}
+div.field-type-asin {
+  clear: none;
+}
+.field-field-movie-spoiler {
+  font-weight: bold;
+  margin: $space-h 0;
+}
+#page-main-callout .field-field-general-asin {
+  margin-bottom: $space-h;
+}
+
+
+/*
+ * Icons
+ */
+.blogger-link img {
+  width: 32px;
+  height: 32px;
+  vertical-align: middle;
+}
+
+/*
+ * Social media links
+ */
+.service-links {
+  ul {
+    list-style: none;
+    padding-left: 0;
+  }
+}
+.behavenet-url-qr {
+  float: left;
+  margin-top: 3em;
+  margin-bottom: 10px;
+}
+
+.share-links {
+  // Negate the clear:both in the pane divider since we want the share links
+  // and QR image to show next to each other.
+  margin-top: -175px;
+  .pane-content {
+    margin-left: 135px;
+  }
+}
+.social-media-links {
+  font-size: 85%;
+  padding-left: 38px;
+  margin-bottom: $space-v;
+
+  .social-media-links-row {
+    margin-top: $space-v;
+    clear: left;
+  }
+  .social-media-icon {
+    display: block;
+    float: left;
+    width: 32px;
+    height: 32px;
+    background-repeat: no-repeat;
+    background-position: top left;
+    margin-left: -38px
+  }
+  .social-media-icon-gplus {
+    background-image: url(../images/gplus-32.png);
+  }
+  .social-media-icon-facebook {
+    background-image: url(../images/facebook.png);
+  }
+  .social-media-icon-twitter {
+    background-image: url(../images/twitter.png);
+  }
+  .social-media-icon-email {
+    background-image: url(../images/email.png);
+  }
+  .social-media-icon-rss {
+    background-image: url(../images/rss.png);
+  }
+}
+
+/*
+ * Highlight the main content on a page.
+ */
+.behave-term-description, .field-field-movie-blog-entry,
+#behavenet-people .node, .general-content,
+.behavenet-indications-by-drug
+{
+  margin: 1em 0;
+  background-color: #EEE;
+  padding: .75em 2em;
+}
+
+/*
+ * Misc fixes
+ */
+
+// @TODO: Should do this by resizing the image, but waiting until we have a final design
+#logo img {
+  width: 160px;
+}
+
+// More breathing room for the /store page -- sets up a 450px wide content area.
+#node-32023 {
+  margin-left: -5px;
+  margin-right: -5px
+}
+
+
+//
+// Responsive layout
+//
+
+// DEBUG:
+// .behavenet-ads { display: none; }
+
+// Mobile first
+@media (max-width: 680px) {
+  $zen-gutter-width: 20px;
+  $zen-column-count: 1;
+
+  #page {
+    @include zen-grid-container();
+  }
+  #page-header, #page-footer, #content-wrapper {
+    @include zen-grid-item(1, 1);
+    @include zen-clear(both);
+    @include zen-nested-container();
+  }
+  #page-header {
+    .site-logo, .site-search, .main-tabs, .behavenet-banner-ad {
+      @include zen-grid-item(1, 1);
+      @include zen-clear(both);
+    }
+    .site-logo {
+      width: 180px;
+      height: 115px;
+
+      // Center the logo
+      margin-left: auto;
+      margin-right: auto;
+      float: none;
+    }
+    .site-search {
+      width: 300px;
+
+      // Center search
+      margin-left: auto;
+      margin-right: auto;
+      float: none;
+    }
+    .behavenet-banner-ad {
+      // Crazy-wide banner ad doesn't fit on small screens for crap... But we
+      // do our best.
+      padding-left: 0;
+      padding-right: 0;
+    }
+  }
+  #content-wrapper {
+    #page-main, #page-left-sidebar, #page-main-callout {
+      @include zen-grid-item(1, 1);
+      @include zen-clear(both);
+    }
+  }
+}
+
+@media (min-width: 680px) and (max-width: 935px) {
+  $zen-column-count: 8;
+  $zen-gutter-width: 20px;
+  $zen-grid-width: 680px;
+
+  #page {
+    @include zen-grid-container();
+    width: 680px;
+    margin: 0 auto;
+  }
+  #page-header, #page-footer, #content-wrapper {
+    @include zen-grid-item($zen-column-count, 1);
+    @include zen-clear(both);
+    @include zen-nested-container();
+  }
+  #page-header {
+    .site-logo {
+      @include zen-grid-item(2, 1);
+      @include zen-clear(left);
+    }
+    .site-search {
+      @include zen-grid-item(4, 1, right);
+      @include zen-clear(right);
+
+      // Vertically center with logo
+      margin-top: 50px;
+    }
+    .main-tabs, .behavenet-banner-ad {
+      @include zen-grid-item($zen-column-count, 1);
+      @include zen-clear(both);
+    }
+    .behavenet-banner-ad {
+      // Crazy-wide banner ad doesn't fit on small screens for crap... But we
+      // do our best.
+      padding-left: 0;
+      padding-right: 0;
+    }
+  }
+  #content-wrapper {
+    #page-main {
+      @include zen-grid-item(4, 1, left);
+      @include zen-clear(none);
+    }
+    #page-main-callout {
+      @include zen-grid-item(4, 1, right);
+      @include zen-clear(none);
+    }
+    #page-left-sidebar {
+      @include zen-grid-item($zen-column-count, 1);
+      @include zen-clear(both);
+    }
+  }
+}
+
+@media (min-width: 935px) and (max-width: 1020px) {
+  $zen-column-count: 10;
+  $zen-gutter-width: 20px;
+  $zen-grid-width: 935px;
+
+  #page {
+    @include zen-grid-container();
+    width: $zen-grid-width;
+    margin: 0 auto;
+  }
+  #page-header, #page-footer, #content-wrapper {
+    @include zen-grid-item($zen-column-count, 1);
+    @include zen-clear(both);
+    @include zen-nested-container();
+  }
+  #page-header {
+    .main-tabs {
+      @include zen-grid-item(7, 3);
+      @include zen-clear(both);
+    }
+    .site-logo {
+      @include zen-grid-item(2, 1);
+      @include zen-clear(left);
+      margin-top: 0;
+    }
+    .behavenet-banner-ad {
+      @include zen-grid-item(8, 3, left);
+      @include zen-clear(none);
+      padding-left: 0;
+      padding-right: 0;
+      width: 728px;
+    }
+    .site-search {
+      @include zen-grid-item(4, 1, right);
+
+      // Push below the banner ad
+      margin-top: 100px;
+    }
+  }
+  #content-wrapper {
+    #page-main-callout {
+      @include zen-grid-item(4, 1, right);
+      @include zen-clear(none);
+    }
+    #page-left-sidebar {
+      @include zen-grid-item(2, 1);
+      @include zen-clear(none);
+    }
+    #page-main {
+      @include zen-grid-item(4, 5, right);
+      @include zen-clear(none);
+    }
+  }
+
+  #page-footer {
+    .behavenet-banner-ad {
+      @include zen-grid-item(8, 2);
+    }
+    div {
+      clear:both;
+    }
+  }
+}
+
+@media (min-width: 1020px) {
+  $zen-column-count: 12;
+  $zen-gutter-width: 20px;
+  $zen-grid-width: 1020px;
+
+  #page {
+    @include zen-grid-container();
+    width: $zen-grid-width;
+    margin: 0 auto;
+  }
+  #page-header, #page-footer, #content-wrapper {
+    @include zen-grid-item($zen-column-count, 1);
+    @include zen-clear(both);
+    @include zen-nested-container();
+  }
+  #page-header {
+    .main-tabs {
+      @include zen-grid-item(10, 3);
+      @include zen-clear();
+    }
+    .site-logo {
+      @include zen-grid-item(2, 1);
+      @include zen-clear();
+    }
+    .behavenet-banner-ad {
+      @include zen-grid-item(8, 3);
+    }
+    .site-search {
+      @include zen-grid-item(3, 9);
+
+      // Push below the banner ad
+      margin-top: 100px;
+    }
+  }
+  #content-wrapper {
+    #page-main-callout {
+      @include zen-grid-item(4, 1, right);
+    }
+    #page-left-sidebar {
+      @include zen-grid-item(2, 1);
+    }
+    #page-main {
+      @include zen-grid-item(6, 5, right);
+    }
+  }
+
+  #page-footer {
+    .behavenet-banner-ad {
+      @include zen-grid-item(8, 3);
+    }
+    div {
+      clear:both;
+    }
+
+  }
+
+}
+

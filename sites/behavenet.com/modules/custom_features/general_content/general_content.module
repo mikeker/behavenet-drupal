@@ -1,0 +1,104 @@
+<?php
+
+include_once('general_content.features.inc');
+
+function general_content_init() {
+  if (FALSE === strpos(path_to_theme(), 'themes/Behavenet')) {
+    return;
+  }
+
+  // Add Google Ads code
+  $js1 = <<< EOC
+    if (behave_is_mobile()) {
+      (function() {
+        var useSSL = 'https:' == document.location.protocol;
+        var src = (useSSL ? 'https:' : 'http:') + '//www.googletagservices.com/tag/js/gpt_mobile.js';
+        document.write('<scr' + 'ipt src="' + src + '"></scr' + 'ipt>');
+      })();
+    }
+    else {
+      var googletag = googletag || {};
+      googletag.cmd = googletag.cmd || [];
+      (function() {
+        var gads = document.createElement('script');
+        gads.async = true;
+        gads.type = 'text/javascript';
+        var useSSL = 'https:' == document.location.protocol;
+        gads.src = (useSSL ? 'https:' : 'http:') + '//www.googletagservices.com/tag/js/gpt.js';
+        var node = document.getElementsByTagName('script')[0];
+        node.parentNode.insertBefore(gads, node);
+      })();
+    }
+EOC;
+
+  $js2 = <<< EOC
+    if (behave_is_mobile()) {
+      googletag.cmd.push(function() {
+        googletag.defineSlot('/57419576/Mobile', [320, 50], 'div-gpt-ad-1363387960662-0').addService(googletag.pubads());
+        googletag.defineSlot('/57419576/Mobile-tablet', [728, 90], 'div-gpt-ad-1363387960662-1').addService(googletag.pubads());
+        googletag.enableServices();
+      });
+    }
+    else {
+      googletag.cmd.push(function() {
+        googletag.defineSlot('/57419576/Footer', [728, 90], 'div-gpt-ad-1363386745962-0').addService(googletag.pubads());
+        googletag.defineSlot('/57419576/Leaderboard', [728, 90], 'div-gpt-ad-1363386745962-1').addService(googletag.pubads());
+        googletag.defineSlot('/57419576/Rectangle', [300, 250], 'div-gpt-ad-1363386745962-2').addService(googletag.pubads());
+        googletag.defineSlot('/57419576/Skyscraper', [160, 600], 'div-gpt-ad-1363386745962-3').addService(googletag.pubads());
+        googletag.pubads().enableSingleRequest();
+        googletag.enableServices();
+      });
+    }
+EOC;
+
+
+  drupal_add_js($js1, 'inline', 'header');
+  drupal_add_js($js2, 'inline', 'header');
+}
+
+function general_content_footer() {
+  // Cross-site tracker. Cannot use drupal_add_js because of the noscript tag.
+  $tracker = <<< EOC
+    <script type="text/javascript">
+      _bizo_data_partner_id = "5347";
+    </script>
+    <script type="text/javascript">
+    (function() {
+      var s = document.getElementsByTagName("script")[0];
+      var b = document.createElement("script");
+      b.type = "text/javascript";
+      b.async = true;
+      b.src = (window.location.protocol === "https:" ? "https://sjs" : "http://js") + ".bizographics.com/insight.min.js";
+      s.parentNode.insertBefore(b, s);
+    })();
+    </script>
+    <noscript>
+      <img height="1" width="1" alt="" style="display:none;" src="//www.bizographics.com/collect/?pid=5347&fmt=gif" />
+    </noscript>
+EOC;
+
+  // Another cross-site tracker, this one from Quantcast.
+  $tracker .= <<< EOC
+    <script type="text/javascript">
+      var _qevents = _qevents || [];
+      (function() {
+        var elem = document.createElement('script');
+        elem.src = (document.location.protocol == "https:" ? "https://secure" : "http://edge") + ".quantserve.com/quant.js";
+        elem.async = true;
+        elem.type = "text/javascript";
+        var scpt = document.getElementsByTagName('script')[0];
+        scpt.parentNode.insertBefore(elem, scpt);
+      })();
+      _qevents.push({
+        qacct:"p-mx-J5VVpQrYE8"
+      });
+    </script>
+    <noscript>
+      <div style="display:none;">
+        <img src="//pixel.quantserve.com/pixel/p-mx-J5VVpQrYE8.gif" border="0" height="1" width="1" alt="Quantcast"/>
+      </div>
+    </noscript>
+EOC;
+
+  return $tracker;
+}

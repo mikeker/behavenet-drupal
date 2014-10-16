@@ -1,0 +1,63 @@
+<?php
+/**
+ * Implementation of hook_schema().
+ */
+function taxonomy_tweaks_schema() {
+  $schema['tax_tweaks'] = array(
+    'description' => 'Holds extra taxonomy data.',
+    'fields' => array(
+      'tid' => array(
+        'description' => '{term_data}.tid',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'is_acronym' => array(
+        'description' => 'TRUE if this term is an acronym for another term',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'extras_nid' => array(
+        'description' => 'A node which holds additional content for this term',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ),
+    ),
+    'primary key' => array('tid'),
+    'unique keys' => array('extras_nid' => array('extras_nid')),
+  );
+  return $schema;
+}
+
+function taxonomy_tweaks_install() {
+  $debug = drupal_install_schema('taxonomy_tweaks');
+}
+
+function taxonomy_tweaks_uninstall() {
+  drupal_uninstall_schema('taxonomy_tweaks');
+}
+
+/**
+ * Implements hook_update_N
+ *
+ * Adds the tax_extras_nid column so we can use CCK fields with this term
+ */
+function taxonomy_tweaks_update_6001() {
+  $ret = array();
+
+  // Adds a unique nid field to hold extra taxonomy term info in a node.
+  db_add_field($ret, 'tax_tweaks', 'extras_nid', array(
+    'description' => 'A node which holds additional content for this term',
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => FALSE,
+  ), array(
+    'unique keys' => array('extras_nid' => array('extras_nid')))
+  );
+
+  return $ret;
+}

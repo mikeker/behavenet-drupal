@@ -1,0 +1,3864 @@
+<?php
+//ini_set('max_execution_time', 180);
+
+/*
+ * (Hopefully) helpful documentation...
+ *
+ * Several tables in the existing dataset had odd references.  Eg: rather than linking from
+ * drug_generic_names to the source or preparation table, drug_sources links to drug_generic_names
+ * I attempted to correct this by making drug_generic_names (which became the "Generic" content
+ * type) the main content type with links to other content types from there.  This was done for the
+ * following content types:
+ *
+ *      - Sources (drug_sources)
+ *      - Alternate spellings (alternate_generic_names) (incorporated in the Generic content type)
+ *
+ */
+
+function bh_import_menu () {
+  $items = array();
+  $items['import_test'] = array(
+    'title' => 'test',
+    'description' => 'test',
+    'page callback' => 'bh_import_test',
+    'access arguments' => array('access content'),
+  );
+  return ($items);
+}
+
+
+function bh_import_migrate_prepare_node (&$node, $table, &$row) {
+  // Let auto nodetitles handle blank titles
+  if ('{Empty title}' == $node->title) {
+    $node->title = '';
+  }
+
+  $generics = build_lookup('generic_names');
+
+  if (!isset($node->field_combo_drugs)) {
+    $node->field_combo_drugs = array();
+  }
+
+  if (!empty($row->data_drug_combinations_Drug_2)) {
+    $node->field_combo_drugs[1] = array('nid' => $generics[$row->data_drug_combinations_Drug_2]);
+  }
+  if (!empty($row->data_drug_combinations_Drug_3)) {
+    $node->field_combo_drugs[2] = array('nid' => $generics[$row->data_drug_combinations_Drug_3]);
+  }
+  if (!empty($row->data_drug_combinations_Drug_4)) {
+    $node->field_combo_drugs[3] = array('nid' => $generics[$row->data_drug_combinations_Drug_4]);
+  }
+  if (!empty($row->data_drug_combinations_Drug_5)) {
+    $node->field_combo_drugs[4] = array('nid' => $generics[$row->data_drug_combinations_Drug_5]);
+  }
+
+
+//  print "<pre>";
+//  print "\nNode:\n";
+//  print_r($node);
+//  print "\nTable:\n";
+//  print_r($table);
+//  print "\nRow:\n";
+//  print_r($row);
+//  exit;
+
+  return;
+
+  // FINISHED:
+
+  // Correct bogus precursor nid issue
+  if ($node->field_generic_precursor[0]['nid'] == $node->nid) {
+    unset($node->field_generic_precursor[0]['nid']);
+  }
+
+  // Remove source info -- need to import that by hand
+  if (!empty($node->field_generic_sources)) {
+    unset ($node->field_generic_sources);
+  }
+
+  /*
+   * Handle multiple terms per person here.
+   *
+   *
+   */
+  if ('people' == $node->type) {
+  }
+
+
+  /*
+   * Handle some many-to-many relationships here
+   */
+  if ('generic' == $node->type) {
+    // Get original ID of this generic drug entry
+    $orig_id = db_result(
+    db_query('SELECT sourceid FROM {migrate_map_generic_names} WHERE destid = %d', $node->nid)
+    );
+    if (empty($orig_id)) {
+      watchdog ('migrate', 'Error: Cannot find source id for ' .$node->nid);
+    } else {
+      if (!isset($node->field_gen_terms)) {
+        $node->field_gen_terms = array();
+      }
+
+      // Collect terms associated with this entry
+      $result = db_query("
+        SELECT t.destid
+        FROM {data_term_term_drug_relation} AS r
+        LEFT JOIN {migrate_map_terms} AS t ON r.Term = t.sourceid
+        WHERE Gnrc = %d
+        ", $orig_id
+      );
+      while ($row = db_fetch_object($result)) {
+        $node->field_gen_terms[] = array('nid' => $row->destid);
+      }
+    }
+  }
+
+  //  // Collect field info from CCK
+  //  static $types, $fieldinfo = array();
+  //  $errors = array();
+  //  if (!isset($types)) {
+  //    $types = (array) content_types();
+  //  }
+  //
+  //  // Check if this node id has been imported already.  If so, add multiple values to existing values
+  //  // rather than overwriting.  NOTE: db_result returns FALSE if destid doesn't exist, thus using
+  //  // the "exactly equals" comparison
+  //  $r = db_query('SELECT needs_update FROM {%s} WHERE destid = %d', $table->maptable, $node->nid);
+  //  if ('0' === db_result($r)) {
+  //    // Get list of multi-value fields
+  //    foreach ($types[$node->type]['fields'] as $field) {
+  //      $existing = '';
+  //      $columns = array_keys($field['columns']);
+  //      if ($field['multiple'] && isset($node->$field['field_name']) && ('field_generic_sources' != $field['field_name'])) {
+  //        // This is a multi-value field and it is part of the row being imported
+  //        if (empty($existing)) {
+  //          // Only load node if we really need to...  Reset the node cache so we don't get stale data
+  //          $existing = node_load($node->nid, NULL, TRUE);
+  //        }
+  //        $new_value = $node->{$field['field_name']}[0][$columns[0]];
+  //
+  //        $node->$field['field_name'] = $existing->$field['field_name'];
+  //        // Avoid duplicated data
+  //        foreach ($existing->$field['field_name'] as $value) {
+  //          if ($new_value == $value[$columns[0]]) {
+  //            continue 2;
+  //          }
+  //        }
+  //        array_push($node->$field['field_name'], array($columns[0] => $new_value));
+  //      }
+  //    }
+  //
+  //    // Remove entry from map table so we don't get duplicate primary key warnings
+  //    db_query('DELETE FROM {%s} WHERE destid = %d', $table->maptable, $node->nid);
+  //  }
+
+}
+
+
+/**
+ * Collects arrays of all possible ancestory chains of a given term ID
+ *
+ * @param $tid
+ * @return array of ancestry arrays
+ */
+function get_multi_parent_ancestory($tid, $depth = 0) {
+  $parents = taxonomy_get_parents($tid);
+  $ancestory = array();
+  foreach ($parents as $term) {
+    $ancestory[$term->tid] = array('term' => $term, 'parents' => get_multi_parent_ancestory($term->tid));
+  }
+  return $ancestory;
+}
+
+
+function bh_import_test2() {
+  dpr(get_multi_parent_ancestory(6682));
+  exit;
+}
+
+
+
+/*
+ * Helpers
+ */
+
+function get_orig() {
+  // Grab list of original tid => term_name
+  static $orig = array();
+  if (empty($orig)) {
+    $result = db_query('SELECT ID, term from {data_term} WHERE term IS NOT NULL');
+    while ($row = db_fetch_object($result)) {
+      $orig[$row->ID] = $row->term;
+    }
+  }
+  return $orig;
+}
+
+
+function get_terms($force = FALSE) {
+  // Quick lookup table of all of vocab 5 (Terms) (name => tax_object)
+  static $terms = array();
+  if (empty($terms) || $force) {
+    $v = taxonomy_get_tree(5);
+    $terms = array();
+    foreach ($v as $term) {
+      if (isset($terms[$term->name])) {
+        if ($term->tid != $terms[$term->name]->tid) {
+          dpr('Duplicate term in Drupal vocab 5: ');
+
+          // Clean up duplicates -- reassign nodes with duplicate tid to original
+          $result = taxonomy_select_nodes($term->tid);
+          $nids = array();
+          while ($row = db_fetch_object($nids)) {
+            $nids[] = $row->nid;
+          }
+          dpr('Node list for duplicate: '. $term->name .' id: '. $term->tid);
+          dpr($nids);
+
+          $result = taxonomy_select_nodes($terms[$term->name]->tid);
+          $nids = array();
+          while ($row = db_fetch_object($nids)) {
+            $nids[] = $row->nid;
+          }
+          dpr('Node list for original: '. $terms[$term->name]->name. ' id: '. $terms[$term->name]->tid);
+          dpr($nids);
+        }
+      }
+      else {
+        $terms[$term->name] = $term;
+      }
+    }
+  }
+  return $terms;
+}
+
+/**
+ * Adds a term to a node, checking if the term already exists in the node
+ */
+function _bh_add_term(&$node, $tid) {
+  $current = array();
+  foreach($node->field_general_terms as $item) {
+    if (!empty($item['value'])) {
+      $current[] = $item['value'];
+    }
+  }
+
+  // Check that term exists in both Content Taxonomy field and core taxonomy field
+  // in order to bail.  Otherwise, we set the missing one below
+  if (isset($node->taxonomy[$tid]) && in_array($tid, $current)) {
+    return FALSE;
+  }
+
+  $term = taxonomy_get_term($tid);
+  if (empty($term)) {
+    dpr("Bogus tid ($tid) specified, tried to associate with $node->title");
+    return FALSE;
+  }
+  $node->taxonomy[$tid] = $term;
+  if (!in_array($tid, $current)) {
+    if (empty($node->field_general_terms[0]['value'])) {
+      $node->field_general_terms[0]['value'] = $tid;
+    }
+    else {
+      $node->field_general_terms[] = array('value' => $tid);
+    }
+  }
+  return TRUE;
+}
+
+
+/**
+ * Compacts a Content Taxonomy field -- useful when removing terms from nodes
+ * programmatically
+ */
+function _bh_compress_field(&$node, $field_name, $key = 'value') {
+  // Collect valid values
+  $valid = array();
+  foreach ($node->$field_name as $index => $item) {
+    if (!empty($item[$key])) {
+      $valid[] = $item[$key];
+    }
+  }
+
+  // Rebuild CT field
+  $node->$field_name = array();
+  if (0 == count($valid)) {
+    $node->{$field_name}[] = array($key => '');
+  }
+  else {
+    foreach ($valid as $item) {
+      $node->{$field_name}[] = array($key => $item);
+    }
+  }
+}
+
+/**
+ * Adds one or more noderefs to a given field in a node, checking for dups and
+ * removing blank entries that are sometimes added by previous imports
+ */
+function _bh_add_noderef(&$node, $field, $nids) {
+  if (!is_array($nids)) {
+    $nids = array($nids);
+  }
+  $current = $node->$field;
+  $all = array();
+
+  // Collect all current nids, merge with the new ones and rebuild CCK field
+  foreach($current as $entry) {
+    if (empty($entry['nid'])) {
+      continue;
+    }
+    $all[] = $entry['nid'];
+  }
+  $all = array_unique(array_merge($all, $nids));
+
+  // Build CCK field values array
+  $update = array();
+  foreach ($all as $nid) {
+    $update[] = array('nid' => $nid);
+  }
+
+  // Overwrite existing with updated values
+  $node->$field = $update;
+}
+
+function _bh_build_url_list() {
+  static $url = array();
+  if (empty($url)) {
+    $results = db_query("
+      SELECT * FROM {data_url}
+    ");
+    while ($row = db_fetch_object($results)) {
+      // Strip domain from url_full for better comparisons
+      $row->url_full = str_replace('http://www.behavenet.com', '', $row->url_full);
+      $row->url_full = str_replace('http://behavenet.com', '', $row->url_full);
+
+      // Handle spaces in URLs
+      $row->url_full = str_replace(' ', '%20', trim($row->url_full));
+      $row->url_base = str_replace(' ', '%20', trim($row->url_base));
+
+      // Do all comparisons in lowercase
+      $row->url_full = strtolower($row->url_full);
+      $row->url_base = strtolower($row->url_base);
+
+      $url[$row->url_base][] = $row;
+    }
+  }
+  return $url;
+}
+
+/**
+ * Parses a string for old-style urls and returns the string with Drupal links
+ */
+function _bh_url_replace(&$string, &$error) {
+  $success = 0;     // Count number of replacements
+  $error = '';
+
+  if (empty($string)) {
+    return $string;
+  }
+
+  // Debug
+  // if (FALSE === strpos($string, 'drug.htm')) {
+    // return $string;
+  // }
+
+  // Load URL redirects
+  $url = _bh_build_url_list();
+
+  // $regexp = "<a\s[^>]*href=(\"??)([^\">]*?)\\1[^>]*>(.*)<\/a>";
+
+  // Remove closing </a> tag to make up for poorly formed HTML in the orignal dataset
+  $regexp = "<a\s[^>]*href=(\"??)([^\">]*?)\\1[^>]*>(.*)";
+  if (preg_match_all("/$regexp/siU", $string, $matches)) {
+    // dpr($matches);
+    foreach ($matches[2] as $orig_url) {
+      $old_url = strtolower(trim($orig_url));
+
+      // Strip domain from url_full for better comparisons
+      $old_url = str_replace('http://www.behavenet.com', '', $old_url);
+      $old_url = str_replace('http://behavenet.com', '', $old_url);
+
+      $base = basename($old_url);
+      $repl = '';
+      // dpr("checking $base for $old_url ($orig_url)");
+
+      if (isset($url[$base])) {
+        if (count($url[$base]) == 1) {
+          // easy!  Single match...
+          $repl = $url[$base][0];
+        }
+        else {
+          // not so easy: multiple matches, check full url first;
+          foreach ($url[$base] as $option) {
+            // Check full url to see if that works
+            if ($old_url == $option->url_full) {
+              $repl = $option;
+              break;
+            }
+          }
+
+          // If nothing, try partial matches based on relative paths
+          if (empty($repl)) {
+            // Remove leading '..' and '/' bits so we just have the text part left
+            $partial = ltrim($old_url, './');
+            foreach ($url[$base] as $option) {
+              if (substr($option->url_full, -1 * strlen($partial)) == $partial) {
+                $repl = $option;
+                break;
+              }
+              else {
+                // dpr("partial is $partial compared to " . substr($option->url_full, -1 * strlen($partial)));
+              }
+            }
+          }
+        }
+
+        // Couldn't find anything...
+        if (empty($repl)) {
+          $error = "unable to find replacement URL for $old_url";
+        }
+        else {
+          $success++;
+          // Replace the old with the new
+          if ('term' == $repl->type) {
+            $string = str_replace($orig_url, "/taxonomy/term/$repl->drupal_id", $string);
+            // dpr("replaced $orig_url with /taxonomy/term/$repl->drupal_id");
+          }
+          else if ('node' == $repl->type) {
+            $string = str_replace($orig_url, "/node/$repl->drupal_id", $string);
+            // dpr("replaced $orig_url with /node/$repl->drupal_id");
+          }
+          else if ('path' == $repl->type) {
+            // Since we only have a few of these types of replacements we're
+            // just going to list them here.  'old_url' => 'new_url'
+            $replacements = array(
+              '/support' => '/directory/support-organization',
+            );
+            $string = str_replace($orig_url, $replacements[$old_url]);
+            // dpr("replaced $orig_url with " . $replacements[$old_url]);
+          }
+        }
+      }   // if (isset($url[$base])) {
+      else {
+        if (
+          'http://' != substr($old_url, 0, 7)
+          && '/taxonomy/term/' != substr($old_url, 0, 15)
+          && '/node/' != substr($old_url, 0, 6)
+        ) {
+          $error = "No url redirect for $old_url";
+        }
+      }
+    }
+  }
+  // print $error;
+  return $success;
+}
+
+function _bh_get_entry() {
+  static $index = array();
+  static $vals = array();
+  static $current = 0;
+
+  if (empty($index) || empty($vals)) {
+    $xml = file_get_contents('../movie-blog-12-07-2012.xml');
+    // $xml = file_get_contents('../opinion.xml');
+    $p = xml_parser_create();
+    xml_parse_into_struct($p, $xml, $vals, $index);
+    xml_parser_free($p);
+  }
+
+  // Opening and closing <entry> tags
+  $start = $index['ENTRY'][$current++];
+  $end = $index['ENTRY'][$current++];
+  if (empty($start) || empty($end)) {
+    return NULL;
+  }
+
+  $entry = array();
+  for($i = $start; $i < $end; $i++) {
+    switch ($vals[$i]['tag']) {
+      case 'TITLE':
+        $entry['title'] = $vals[$i]['value'];
+        break;
+
+      case 'CONTENT':
+        $entry['content_original'] = $vals[$i]['value'];
+
+        // Pull ASIN from content -- it's often times in an <iframe>
+        $regex = '/<iframe.*asins=(.*)["\s].*<\/iframe>/iU';
+        preg_match($regex, $entry['content_original'], $matches);
+        $entry['asin'] = empty($matches[1]) ? '' : $matches[1];
+        $entry['content'] = preg_replace($regex, '', $entry['content_original']);
+
+        // Pull TweetChat tag from content -- it's often in a <a> tag
+        $regex = '/<a href=.*tweetchat.com\/room\/(.*)["\s].*>.*<\/a>/iU';
+        preg_match($regex, $entry['content'], $matches);
+        $entry['tweetchat'] = empty($matches[1]) ? '' : $matches[1];
+        $entry['content'] = preg_replace($regex, '', $entry['content']);
+
+        // Clean up Bloggers crappy <br>-instead-of-<p>
+        $regex = '/<br[\s\/]*>\s*<br[\s\/]*>/i';
+        $entry['content'] = '<p>' . preg_replace($regex, "\n</p><p>\n", $entry['content']) . '</p>';
+        break;
+
+      case 'PUBLISHED':
+        $entry['pub_date'] = $vals[$i]['value'];
+        break;
+
+      case 'CATEGORY':
+        $attr = $vals[$i]['attributes'];
+        if ('http://schemas.google.com/g/2005#kind' == $attr['SCHEME']) {
+          if ('http://schemas.google.com/blogger/2008/kind#post' == $attr['TERM']) {
+            $entry['type'] = 'post';
+          }
+          if ('http://schemas.google.com/blogger/2008/kind#comment' == $attr['TERM']) {
+            $entry['type'] = 'comment';
+          }
+        }
+        if ('http://www.blogger.com/atom/ns#' == $attr['SCHEME']) {
+          @$entry['terms'][] = $attr['TERM'];
+        }
+        break;
+
+      case 'ID':
+        $entry['blogger_id'] = $vals[$i]['value'];
+        break;
+
+      case 'THR:IN-REPLY-TO':
+        $entry['comment_node'] = $vals[$i]['value'];
+        break;
+    }
+  }
+
+  return $entry;
+}
+
+function bh_import_finished($success, $results, $operations) {
+  $success = array(); $error = array();
+  foreach ($results as $result) {
+    if ($result['success']) {
+      $success[] = $result['msg'];
+    }
+    else {
+      $error[] = $result['msg'];
+    }
+  }
+  // dsm($success); dsm($error);
+  drupal_set_message('There were ' . count($error) . ' errors:');
+  drupal_set_message(implode('<br />', $error));
+  drupal_set_message('There were ' . count($success) . ' successful imports:');
+  drupal_set_message(implode('<br />', $success));
+}
+
+function bh_import_movie_entry($url, $nid, &$context) {
+  // Grab blogger entry
+  $ch = curl_init($url);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+  curl_setopt($ch, CURLOPT_HEADER, 0);
+  $page = curl_exec($ch);
+  if (!$page) {
+    $context['results'][] = array('success' => FALSE, 'msg' => "Error opening $url: " . curl_error($ch));
+    curl_close($ch);
+    return;
+  }
+  curl_close($ch);
+
+  $node = node_load($nid);
+
+  // Grab post date, eg:
+  // <abbr class='published' title='2011-10-16T14:04:00-07:00'>2:04 PM</abbr>
+  $regex = "/<abbr class='published' title='(.*)'>/i";
+  preg_match($regex, $page, $matches);
+  if (!empty($matches[1])) {
+    $date = strtotime($matches[1]);
+    $result = db_query("
+      UPDATE {node}
+      SET created = %d
+      WHERE nid = %d
+    ", $date, $nid);
+
+    // Since we're doing this part after the initial import, we exit here.
+    if ($result) {
+      $context['results'][] = array('success' => TRUE, 'msg' => "Updated node/$nid, set created date to " . format_date($date));
+    }
+    else {
+      $context['results'][] = array('success' => FALSE, 'msg' => "Unable to update node/$nid");
+    }
+
+    return;
+  }
+  else {
+    $context['results'][] = array('success' => FALSE, 'msg' => "Couldn't find post date for $url. nid is $nid");
+  }
+
+  // Grab entry from full HTML ('s' == dot-all modifier)
+  // preg_match("/<div class='post-body entry-content'>(.*?)<div style='clear: both;'><\/div>/is", $matches);
+  preg_match("/<div class='post-body entry-content'>(.*?)<div style='clear: both;'><\/div>/is", $page, $matches);
+
+  if (empty($matches[1])) {
+    $context['results'][] = array('success' => FALSE, 'msg' => "Error: poorly formed HTML at $url. nid is $nid");
+    return;
+  }
+  $entry = $matches[1];
+
+  // Strip Amazon and Tweetchat links
+  // ('U' == ungreedy * modifier)
+  $regex = '/<iframe.*asins=(.*)["\s].*<\/iframe>/iU';
+  $entry = preg_replace($regex, '', $entry);
+
+  // Pull TweetChat tag from content -- it's often in a <a> tag
+  // ('U' == ungreedy * modifier)
+  $regex = '/<a href=.*tweetchat.com\/room\/(.*)["\s].*>(.*)<\/a>/iU';
+  preg_match($regex, $entry, $matches);
+  if (!empty($matches[2])) {
+    $node->field_general_twitter[0]['value'] = $matches[2];
+  }
+  $entry = preg_replace($regex, '', $entry);
+
+  // Ditch Blogger's crappy idea that a double line-break == a paragraph
+  $regex = '/<br[\s\/]*>\s*<br[\s\/]*>/i';
+  $entry = '<p>' . preg_replace($regex, "\n</p><p>\n", $entry) . '</p>';
+
+  // Remove list of terms -- we already have those as term refs.
+  $regex = '/<p>\s*(<a.*?>.+?<\/a>[\s\|]+)+\s*<\/p>/i';
+  $entry = preg_replace($regex, '', $entry);
+  if (empty($entry)) {
+    $context['results'][] = array('success' => FALSE, 'msg' => "Unable to remove terms in node/$nid. This node will not be imported.");
+    return;
+  }
+
+  // Grab spoiler alerts
+  // ('U' == ungreedy * modifier, 's' is dot-all modifier)
+  $regex = '/<p>\s*Spoiler alert.*<\/p>/isU';
+  preg_match_all($regex, $entry, $matches);
+  if (!empty($matches[0])) {
+    $node->field_movie_spoiler[0]['value'] = TRUE;
+  }
+  $entry = preg_replace($regex, '', $entry);
+
+  // Remove empty paragraph tags or those with only separators such as | and ,
+  $regex = '/<p>[|,\s]*<\/p>/iU';
+  $entry = preg_replace($regex, '', $entry);
+
+  // Convert links to the old site to links to the new site
+  _bh_url_replace($entry, $error);
+  if (!empty($error)) {
+    $context['results'][] = array('success' => FALSE, 'msg' => "Error replacing URLs in node/$nid: $error");
+  }
+
+  $node->field_movie_blog_entry[0]['value'] = $entry;
+  $node->field_movie_blog_entry[0]['format'] = 3;
+  $node->field_movie_blog[0]['value'] = NULL;
+  // dsm($entry);
+  node_save($node);
+
+  $context['results'][] = array('success' => TRUE, 'msg' => "Updated $node->title (node/$node->nid)");
+}
+
+
+function bh_import_test() {
+  ini_set('max_execution_time', 300);
+
+  exit;
+
+  // $movies = build_lookup('movies');
+  $movies = array();    // Drupal title => nid
+  $results = db_query("SELECT title, nid FROM {node} WHERE type='movie'");
+  while ($row = db_fetch_object($results)) {
+    $movies[strtolower($row->title)] = $row->nid;
+  }
+  // dpr($movies); exit;
+
+  $titles = array();    // movie_title => original_id
+  $results = db_query("SELECT * FROM {data_movies} WHERE Title IS NOT NULL");
+  while ($row = db_fetch_object($results)) {
+    $titles[$row->Title] = $row->ID;
+  }
+
+  $missing = array();
+  $correct = array();
+  while($entry = _bh_get_entry()) {
+    if ('post' == $entry['type']) {
+      if (!isset($movies[strtolower($entry['title'])])) {
+        $missing[] = $entry['title'];
+      }
+      else {
+        $correct[] = $entry['title'];
+      }
+    }
+  }
+  dpr(count($missing) . ' are missing');
+  dpr($missing);
+  dpr(count($correct) . ' are verified as imported');
+  dpr($correct);
+  exit;
+
+  // Update blog entries with post date from Blogger
+  $results = db_query("
+SELECT DISTINCT m.nid, orig.Blog
+FROM behave_content_type_movie AS m
+INNER JOIN behave_migrate_map_movies AS map
+  ON map.destid = m.nid
+INNER JOIN behave_data_movies AS orig
+  ON map.sourceid = orig.ID
+WHERE orig.Blog IS NOT NULL
+  ");
+
+  $operations = array();
+  while ($row = db_fetch_object($results)) {
+    $operations[] = array('bh_import_movie_entry', array($row->Blog, $row->nid));
+  }
+  // DEBUG:
+  // $operations = array_slice($operations, 0, 5);
+  // dpr(count($operations));
+  // dpr($operations);
+  // exit;
+
+  $batch = array(
+    'title' => 'Importing',
+    'operations' => $operations,
+    'finished' => 'bh_import_finished',
+  );
+  batch_set($batch);
+  batch_process('<front>');
+  return;
+
+  // DONE:
+  // Import opinion blog entries
+  while ($entry = _bh_get_entry()) {
+    if ('post' == $entry['type']) {
+      $node = new stdClass();
+      $node->body = $entry['content'];
+      $node->created = strtotime($entry['pub_date']);
+      $node->title = $entry['title'];
+      $node->type = 'opinion';
+    }
+    node_save($node);
+    dpr("Added $node->title at node/$node->nid");
+  }
+
+
+  // DONE:
+  // Import movies based on existing movie blog entries
+  $results = db_query("
+    SELECT DISTINCT m.nid, m.field_movie_blog_value FROM {content_type_movie} AS m
+    WHERE m.field_movie_blog_value IS NOT NULL
+      AND m.field_movie_blog_entry_value IS NULL
+  ");
+
+  $operations = array();
+  while ($row = db_fetch_object($results)) {
+    $operations[] = array('bh_import_movie_entry', array($row->field_movie_blog_value, $row->nid));
+  }
+
+  // DEBUG:
+  // $operations = array_slice($operations, 0, 5);
+
+  $batch = array(
+    'title' => 'Importing',
+    'operations' => $operations,
+    'finished' => 'bh_import_finished',
+  );
+  batch_set($batch);
+  batch_process('<front>');
+  return;
+
+
+  // Find missing terms for directory entries
+  $terms = build_lookup('terms');
+  $dirs = build_lookup('directories');
+
+  $results = db_query("
+    SELECT dir.Name, dir.ID, links.Type, links.Term, links.Organization, links.Drug FROM {data_directory_links} AS dir
+    LEFT JOIN {data_directory_links_definition_relation} AS links
+      ON dir.ID = links.link
+    WHERE 1
+  ");
+
+  $data = array();
+  while ($row = db_fetch_object($results)) {
+    if (!isset($dirs[$row->ID])) {
+      dpr($row, 'Missing directory ID in');
+      continue;
+    }
+    if (!isset($terms[$row->Term])) {
+      dpr($row, 'Bogus term ID');
+      continue;
+    }
+    // $row->term_obj= taxonomy_get_term($terms[$row->Term]);
+    if (isset($data[$dirs[$row->ID]])) {
+      dpr($row, 'Warning: error multiple entries for');
+    }
+    else {
+      $data[$dirs[$row->ID]] = $row;
+    }
+  }
+
+  $success = array();
+  $error = array();
+  foreach ($data as $dir_nid => $row) {
+    $node = node_load($dir_nid);
+    if (_bh_add_term($node, $terms[$row->Term])) {
+      $success[] = "Updated $node->title to include $row->Term";
+    }
+    else {
+      $error[] = "$node->title already had $row->Term associated with it";
+    }
+    node_save($node);
+  }
+
+  dpr(count($success) . ' successful updates:');
+  dpr($success);
+  dpr(count($error) . ' errors:');
+  dpr($error);
+
+  exit;
+
+  // DONE:
+  // Find any nodes and/or terms that do not have aliases
+      // AND n.type NOT IN ('tax_tweaks_extras', 'indication', 'dsm', 'directory')
+  $results = db_query("
+    SELECT n.nid, n.type, n.title FROM {node} AS n
+    LEFT JOIN {url_alias} AS alias
+      ON CONCAT('node/', CAST(n.nid AS CHAR)) = alias.src
+    WHERE alias.src IS NULL
+      AND n.status = 1
+      AND n.type IN ('movie', 'book', 'people')
+  ");
+  $missing = array();
+  $count = 0;
+  while ($row = db_fetch_object($results)) {
+    // Check if this node should have a pathauto generated alias
+    $node = node_load($row->nid);
+    _pathauto_include();
+    $placeholders = pathauto_get_placeholders('node', $node);
+    $pathauto_alias = pathauto_create_alias('node', 'update', $placeholders, "node/{$node->nid}", $node->nid, $node->type, $node->language);
+    dpr("udpated $node->title to the url $pathauto_alias");
+
+
+    // $missing[$row->type][] = $row;
+    // $count++;
+  }
+  // dpr("missing $count aliases");
+  // dpr($missing);
+
+
+  exit;
+
+  $results = db_query("SELECT did FROM {panels_display} WHERE uuid LIKE '' OR uuid IS NULL");
+  $dids = array();
+  while ($row = db_fetch_object($results)) {
+    $dids[] = $row->did;
+  }
+  if (count($dids)) {
+    $displays = panels_load_displays($dids);
+    foreach ($displays as $display) {
+      // A display save also triggers pane saves.
+      panels_save_display($display);
+    }
+    if (count($displays)) {
+      $msg[] = t('Added uuids to displays and panes stored in the db.');
+    }
+  }
+  dpr($msg);
+  dpr('done.');
+  exit;
+
+
+  $success = $error = array();
+  // $terms = build_lookup('terms');
+  // dpr($terms); exit;
+
+  $dirs = build_lookup('directories');
+  $results = db_query("
+    SELECT dir.Name, dir.ID, rel.Type FROM {data_directory_links} AS dir
+    INNER JOIN {data_directory_links_definition_relation} AS rel
+      ON rel.Link = dir.ID
+    WHERE rel.Type = 5479
+      OR  rel.Type = 5482
+  ");
+  $data = array();
+  $fe = array();
+  while ($row = db_fetch_object($results)) {
+    if (!isset($dirs[$row->ID])) {
+      dpr("Error: Bogus ID in"); dpr($row);
+      continue;
+    }
+    if ($row->Type == 5482) {
+      $fe['node/' . $dirs[$row->ID]] = $row->Name;
+    }
+    else {
+      $data['node/' . $dirs[$row->ID]] = $row->Name;
+    }
+  }
+  dpr($data);
+  dpr($fe);
+  dpr(array_intersect_key($fe, $data));
+
+
+  dpr("done.");
+  dpr(count($errors) . ' Errors:');
+  dpr($errors);
+  dpr(count($success) . ' Successful updates:');
+  dpr($success);
+  exit;
+
+
+  // Somewhere along the line we ended up with bad substitutions where part of the
+  // URL was replaced in the middle of an old URL resulting in something like
+  // /old/path/taxonomy/term/drug.htm or /old/path/taxonomy/term/1234
+  $url = _bh_build_url_list();
+  $results = db_query("
+    SELECT * FROM {term_data} AS t
+  ");
+  $data = array();
+  while ($row = db_fetch_object($results)) {
+    $data[$row->tid] = $row;
+  }
+  // dpr($data); exit;
+  foreach ($data as $tid => $row) {
+    $regexp = "<a\s[^>]*href=(\"??)([^\">]*?)\\1[^>]*>(.*)<\/a>";
+    if (preg_match_all("/$regexp/siU", $row->description, $matches)) {
+      foreach ($matches[2] as $index => $match) {
+        $orig_link_text = $matches[3][$index];
+        $update = FALSE;
+
+        // Check for bad term links
+        $pos = strpos($match, '/taxonomy/term/');
+        if (FALSE !== $pos and 0 != $pos) {
+          $repl = array();
+
+          // Stop looking if we find a perfect match, namely where a url_base
+          // matches for exactly one replacement option
+          $perfect = FALSE;
+
+          // First check to see if the link text matches
+          $link_text = str_replace(' ', '', strtolower($orig_link_text));
+          if (isset($url["$link_text.htm"])) {
+            $repl = $url["$link_text.htm"];
+            $perfect = (1 == count($repl));
+            if ($perfect) {
+              dpr("Found match for link text: $link_text.htm");
+              // dpr($repl);
+            }
+          }
+
+          // Next combine the link text with the leftover text in the URL
+          $test = substr($match, 0, $pos);
+          if (!$perfect) {
+            if (isset($url["$test$link_text.htm"])) {
+              $repl = $url["$test$link_text.htm"];
+              $perfect = (1 == count($repl));
+              if ($perfect) {
+                dpr("Found match for $test$link_text.htm: ");
+                // dpr($repl);
+              }
+            }
+          }
+
+          // Finally, check if the leftover text in the URL matches
+          if (!$perfect) {
+            if (isset($url["$test.htm"])) {
+              $repl = $url["$test.htm"];
+              $perfect = (1 == count($repl));
+              if ($perfect) {
+                dpr("Found match for leftover text $test.htm:");
+                // dpr($repl);
+              }
+            }
+          }
+
+          if (empty($repl)) {
+            $errors[$tid][] = "Unable to find an appropriate url for $match in taxonomy/term/$tid with link text '$orig_link_text'";
+          }
+          else if ($perfect) {
+            $repl = $repl[0];
+          }
+          else {
+            // Too many options
+            $errors[$tid][] = "Unable to disabiguate url for $match in taxonomy/term/$tid with link text '$orig_link_text'";
+          }
+
+          if ('http://behavenet.com' == substr($match, 0, 20)) {
+            $row->description = str_replace('http://behavenet.com', '', $row->description);
+            $success[] = "Removed behavenet.com in $row->name (/taxonomy/term/$row->tid)";
+            $update = TRUE;
+          }
+          if ('http://www.behavenet.com' == substr($match, 0, 24)) {
+            $row->description = str_replace('http://www.behavenet.com', '', $row->description);
+            $success[] = "Removed www.behavenet.com in $row->name (/taxonomy/term/$row->tid)";
+            $update = TRUE;
+          }
+          if ('http://test.behavenet.com' == substr($match, 0, 25)) {
+            $row->description = str_replace('http://test.behavenet.com', '', $row->description);
+            $success[] = "Removed test.behavenet.com in $row->name (/taxonomy/term/$row->tid)";
+            $update = TRUE;
+          }
+          if ('test.behavenet.com' == substr($match, 0, 18)) {
+            $row->description = str_replace('test.behavenet.com', '', $row->description);
+            $success[] = "Removed test.behavenet.com (no http) in $row->name (/taxonomy/term/$row->tid)";
+            $update = TRUE;
+          }
+          if ('/capsules/treatments/famsys/' == substr($match, 0, 28)) {
+            $row->description = str_replace('/capsules/treatments/famsys/', '', $row->description);
+            $success[] = "Removed /capsules/treatments/famsys/ in $row->name (/taxonomy/term/$row->tid)";
+            $update = TRUE;
+          }
+          if (!empty($repl)) {
+            if ('node' == $repl->type) {
+              $row->description = str_replace($match, "/node/$repl->drupal_id", $row->description);
+              $update = TRUE;
+              $success[] = "Updated $match to /node/$repl->drupal_id in $row->name";
+            }
+            else if ('term' == $repl->type) {
+              $row->description = str_replace($match, "/taxonomy/term/$repl->drupal_id", $row->description);
+              $update = TRUE;
+              $success[] = "Updated $match to /taxonomy/term/$repl->drupal_id in $row->name";
+            }
+          }
+        }
+
+        if ($update) {
+          $result = db_query("
+            UPDATE {term_data}
+            SET description = '%s'
+            WHERE tid = %d
+          ", $row->description, $row->tid);
+          dpr("result from update $result");
+        }
+      }
+    }
+  }
+
+
+  // DONE:
+  // Find list of books without ASINs
+  // $results = db_query("
+    // SELECT n.nid, n.title FROM {node} AS n
+    // LEFT JOIN {content_field_general_asin} AS asin
+      // ON n.vid = asin.vid
+    // WHERE n.type = 'book'
+      // AND asin.field_general_asin_asin IS NULL
+  // ");
+  // $data = array();
+  // while ($row = db_fetch_object($results)) {
+    // $data[$row->nid] = $row->title;
+  // }
+  // dpr(count($data));
+  // dpr($data);
+
+
+  // DONE:
+  // Do URL subs for DSM criteria for recently added DSMs
+  $results = db_query("
+    SELECT * FROM {content_field_dsm_body} AS text
+    INNER JOIN {node} AS n
+      ON n.vid = text.vid
+    WHERE text.field_dsm_body_value LIKE '%%%s%%'
+      AND n.nid > 27000
+  ", '<a');
+  $data = array();
+  while ($row = db_fetch_object($results)) {
+    $data[$row->nid] = $row;
+  }
+
+  foreach ($data as $nid => $row) {
+    $node = node_load($nid);
+    $updated = FALSE;
+    foreach ($node->field_dsm_body as $index => $body) {
+      $body = $body['value'];
+      if (_bh_url_replace($body, $error)) {
+        $node->field_dsm_body[$index]['value'] = $body;
+        $updated = TRUE;
+      }
+      if (!empty($error)) {
+        $errors[] = "unable to replace a URL in nid $node->nid ($node->title): $error.";
+      }
+    }
+    if ($updated) {
+      node_save($node);
+      // dpr($node); exit;
+      $success[] = "updated node $node->nid: $node->title with new URLs";
+      if (!empty($error)) {
+        $errors[] = "unable to replace a URL in nid $node->nid ($node->title): $error.";
+        $error = '';
+      }
+    }
+  }
+
+
+
+  // DONE:
+  // Find missing </a> tags in terms
+  // $results = db_query("
+    // SELECT *, description AS text, tid AS id FROM {term_data} AS t
+    // WHERE description IS NOT NULL
+  // ");
+  // $results = db_query("
+    // SELECT *, body AS text, nid AS id FROM {node_revisions} AS r
+    // WHERE r.body IS NOT NULL
+  // ");
+  // $config = array(
+    // 'input-xml' => TRUE,
+    // 'show-warnings' => FALSE,
+  // );
+  // while ($row = db_fetch_object($results)) {
+    // $data[$row->id] = $row;
+    // // $tidy = tidy_parse_string($row->text, $config, 'UTF8');
+    // // if (!empty($tidy->errorBuffer)) {
+      // // dpr("An error was found in taxonomy/term/$row->id");
+      // // dpr($tidy->errorBuffer);
+      // // dpr(' ');
+    // // }
+  // }
+//
+  // $closed = "<a\s[^>]*href=(\"??)([^\">]*?)\\1[^>]*>(.*)<\/a>";
+  // $open = "<a\s[^>]*href=(\"??)([^\">]*?)\\1[^>]*>(.*)";
+//
+  // foreach ($data as $tid => $row) {
+    // if (preg_match_all("/$open/siU", $row->text, $open_matches)) {
+      // preg_match_all("/$closed/siU", $row->text, $closed_matches);
+      // $diff = array_diff($open_matches[2], $closed_matches[2]);
+      // if (!empty($diff)) {
+        // dpr("missing closing tag in node/$row->id");
+        // dpr($diff);
+      // }
+    // }
+  // }
+
+
+  // Somewhere along the line we ended up with bad substitutions where part of the
+  // URL was replaced in the middle of an old URL resulting in something like
+  // /old/path/taxonomy/term/drug.htm or /old/path/taxonomy/term/1234
+  // $results = db_query("
+    // SELECT * FROM {term_data} AS t
+  // ");
+  // $data = array();
+  // while ($row = db_fetch_object($results)) {
+    // $data[$row->tid] = $row;
+  // }
+  // // dpr($data); exit;
+  // foreach ($data as $tid => $row) {
+    // $regexp = "<a\s[^>]*href=(\"??)([^\">]*?)\\1[^>]*>(.*)";
+    // if (preg_match_all("/$regexp/siU", $row->description, $matches)) {
+      // foreach ($matches[2] as $match) {
+        // $update = FALSE;
+        // // Check for bad term links
+        // $pos = strpos($match, '/taxonomy/term/');
+        // if (FALSE !== $pos and 0 != $pos) {
+          // $test = substr($match, 0, $pos) . '.htm';
+          // if (isset($url[$test])) {
+            // $repl = $url[$test];
+            // if ('node' == $repl['type']) {
+              // $row->description = str_replace($match, "/node/$repl->drupal_id", $row->description);
+            // }
+            // else if ('term' == $repl['type']) {
+              // $row->description = str_replace($match, "/taxonomy/term/$repl->drupal_id", $row->description);
+            // }
+            // $update = TRUE;
+            // $success[] = "Updated $match to " . substr($match, $pos) . " in $row->name (/taxonomy/term/$row->tid)";
+          // }
+          // else if ('http://behavenet.com' == substr($match, 0, 20)) {
+            // $row->description = str_replace('http://behavenet.com', '', $row->description);
+            // $success[] = "Removed behavenet.com in $row->name (/taxonomy/term/$row->tid)";
+            // $update = TRUE;
+          // }
+          // else if ('http://www.behavenet.com' == substr($match, 0, 24)) {
+            // $row->description = str_replace('http://behavenet.com', '', $row->description);
+            // $success[] = "Removed behavenet.com in $row->name (/taxonomy/term/$row->tid)";
+            // $update = TRUE;
+          // }
+          // else {
+            // $errors[] = "Unable to find an appropriate url for $match in taxonomy/term/$tid";
+          // }
+        // }
+//
+        // if ($update) {
+          // $result = db_query("
+            // UPDATE {term_data}
+            // SET description = '%s'
+            // WHERE tid = %d
+          // ", $row->description, $row->tid);
+        // }
+      // }
+    // }
+  // }
+
+  // DONE:
+  // Do URL substitutions for the few oddballs that somehow we missed...
+  // $results = db_query("
+    // SELECT * FROM {term_data} AS t
+    // WHERE t.description LIKE '%%%s%%'
+  // ", '.htm"');
+  // $data = array();
+  // while ($row = db_fetch_object($results)) {
+    // $data[$row->tid] = $row;
+  // }
+
+  // // dpr($data); exit;
+  // foreach ($data as $tid => $row) {
+    // $term = taxonomy_get_term($tid);
+    // if (_bh_url_replace($term->description, $error)) {
+      // $result = db_query("
+        // UPDATE {term_data}
+        // SET description = '%s'
+        // WHERE tid = %d
+      // ", $term->description, $term->tid);
+      // $success[] = "updated taxonomy/term/$term->tid ($term->name) with new URLs";
+    // }
+    // if (!empty($error)) {
+      // $errors[] = "unable to replace a URL in term $term->tid ($term->name): $error.";
+    // }
+  // }
+
+  // DONE:
+  // Do URL subs for DSM criteria
+  // $results = db_query("
+    // SELECT * FROM {content_field_dsm_body} AS text
+    // INNER JOIN {node} AS n
+      // ON n.vid = text.vid
+    // WHERE text.field_dsm_body_value LIKE '%%%s%%'
+  // ", '<a');
+  // $data = array();
+  // while ($row = db_fetch_object($results)) {
+    // $data[$row->nid] = $row;
+  // }
+
+  // foreach ($data as $nid => $row) {
+    // $node = node_load($nid);
+    // $updated = FALSE;
+    // foreach ($node->field_dsm_body as $index => $body) {
+      // $body = $body['value'];
+      // if (_bh_url_replace($body, $error)) {
+        // $node->field_dsm_body[$index]['value'] = $body;
+        // $updated = TRUE;
+      // }
+      // if (!empty($error)) {
+        // $errors[] = "unable to replace a URL in nid $node->nid ($node->title): $error.";
+      // }
+    // }
+    // if ($updated) {
+      // node_save($node);
+      // // dpr($node); exit;
+      // $success[] = "updated node $node->nid: $node->title with new URLs";
+      // if (!empty($error)) {
+        // $errors[] = "unable to replace a URL in nid $node->nid ($node->title): $error.";
+        // $error = '';
+      // }
+    // }
+  // }
+
+
+  // DONE:
+  // Fix links that included the full domain name in them in nodes
+  // $results = db_query("
+    // SELECT * FROM {term_data} AS t
+    // WHERE t.description LIKE '%%%s%%'
+  // ", 'www.behavenet.com');
+  // $data = array();
+  // while ($row = db_fetch_object($results)) {
+    // $data[$row->tid] = $row;
+  // }
+  // foreach ($data as $tid => $row) {
+    // $term = taxonomy_get_term($tid);
+    // $term->description = str_replace('http://www.behavenet.com/taxonomy/term/', '/taxonomy/term/', $term->description);
+    // $term->description = str_replace('http://www.behavenet.com/node/', '/node/', $term->description);
+    // $result = db_query("
+      // UPDATE {term_data}
+      // SET description = '%s'
+      // WHERE tid = %d
+    // ", $term->description, $term->tid);
+    // dpr("Updated taxonomy/term/$tid ($term->name)");
+  // }
+
+  // DONE:
+  // Fix links that included the full domain name in them in nodes
+  // $results = db_query("
+    // SELECT * FROM {node_revisions} AS r
+    // INNER JOIN {node} AS n
+      // ON n.nid = r.nid AND n.vid = r.vid
+    // WHERE r.body LIKE '%%%s%%'
+  // ", 'www.behavenet.com');
+  // $data = array();
+  // while ($row = db_fetch_object($results)) {
+    // $data[$row->nid] = $row;
+  // }
+  // foreach ($data as $nid => $row) {
+    // $node = node_load($nid);
+    // $node->body = str_replace('http://www.behavenet.com/taxonomy/term/', '/taxonomy/term/', $node->body);
+    // $node->body = str_replace('http://www.behavenet.com/node/', '/node/', $node->body);
+    // $node->teaser = '';
+    // node_save($node);
+    // dpr("Updated node/$nid ($node->title).");
+  // }
+
+  // First some error checking:
+  // Weed out dups from the data_url table based on url_base
+  $results = db_query("
+    SELECT * FROM {data_url}
+  ");
+  $data = array();
+  while ($row = db_fetch_object($results)) {
+    $data[$row->url_full][] = $row;
+  }
+
+  // Count number of dups
+  foreach ($data as $full => $entries) {
+    if (count($entries) > 1) {
+      dpr(count($entries) . " enteries for $full");
+      dpr($entries);
+    }
+  }
+
+  // Check for 404 redirects for nodes
+  $results = db_query("
+    SELECT * FROM {data_url} AS url
+    LEFT JOIN {node} AS node
+      ON url.drupal_id = node.nid
+    WHERE url.type = 'node'
+      AND node.nid IS NULL
+  ");
+  while ($row = db_fetch_object($results)) {
+    dpr("Missing node $row->drupal_id for $row->url_full (data_url ID: $row->id)");
+  }
+
+  // Check for 404 redirects for terms
+  $results = db_query("
+    SELECT * FROM {data_url} AS url
+    LEFT JOIN {term_data} AS term
+      ON url.drupal_id = term.tid
+    WHERE url.type = 'term'
+      AND term.tid IS NULL
+  ");
+  while ($row = db_fetch_object($results)) {
+    dpr("Missing term $row->drupal_id for $row->url_full (data_url ID: $row->id)");
+  }
+
+  // Now do the substitution.
+  $errors = array();
+  $success = array();
+
+  // Search node bodies looking for links in the data_url table
+  // @TODO: what other fields to we need to do this for?
+  //            - term description
+  //            - ???
+
+  // Go through node bodies
+  $results = db_query("
+    SELECT * FROM {node_revisions} AS r
+    INNER JOIN {node} AS n
+      ON n.nid = r.nid AND n.vid = r.vid
+    WHERE r.body LIKE '%%%s%%'
+  ", '<a');
+  $data = array();
+  while ($row = db_fetch_object($results)) {
+    $data[$row->nid] = $row;
+  }
+
+  foreach ($data as $nid => $row) {
+    $node = node_load($nid);
+    if (_bh_url_replace($node->body, $error)) {
+      $node->teaser = '';
+      node_save($node);
+      $success[] = "updated $node->title with new URLs";
+      if (!empty($error)) {
+        $errors[] = "unable to replace a URL in nid $node->nid ($node->title): $error.";
+        $error = '';
+      }
+    }
+  }
+
+  // Now do term descriptions...
+  // Go through node bodies
+  $results = db_query("
+    SELECT * FROM {term_data} AS t
+    WHERE t.description LIKE '%%%s%%'
+  ", '<a');
+  $data = array();
+  while ($row = db_fetch_object($results)) {
+    $data[$row->tid] = $row;
+  }
+
+  foreach ($data as $tid => $row) {
+    $term = taxonomy_get_term($tid);
+    if (_bh_url_replace($term->description, $error)) {
+      $result = db_query("
+        UPDATE {term_data}
+        SET description = '%s'
+        WHERE tid = %d
+      ", $term->description, $term->tid);
+
+      $success[] = "updated $term->name with new URLs";
+      if (!empty($error)) {
+        $errors[] = "unable to replace a URL in tid $term->tid ($term->name): $error.";
+      }
+    }
+  }
+
+
+  // DONE:
+  // Check for 404 redirects for nodes
+  // $results = db_query("
+    // SELECT * FROM {data_url} AS url
+    // LEFT JOIN {node} AS node
+      // ON url.drupal_id = node.nid
+    // WHERE url.type = 'node'
+      // AND node.nid IS NULL
+  // ");
+  // while ($row = db_fetch_object($results)) {
+    // dpr("Missing node $row->drupal_id for $row->url_full (data_url ID: $row->id)");
+  // }
+  // // Check for 404 redirects for terms
+  // $results = db_query("
+    // SELECT * FROM {data_url} AS url
+    // LEFT JOIN {term_data} AS term
+      // ON url.drupal_id = term.tid
+    // WHERE url.type = 'term'
+      // AND term.tid IS NULL
+  // ");
+  // while ($row = db_fetch_object($results)) {
+    // dpr("Missing term $row->drupal_id for $row->url_full (data_url ID: $row->id)");
+  // }
+
+  // DONE:
+  // Weed out dups from the data_url table based on url_base
+  // $results = db_query("
+    // SELECT * FROM {data_url}
+  // ");
+  // $data = array();
+  // while ($row = db_fetch_object($results)) {
+    // $data[$row->url_full][] = $row;
+  // }
+//
+  // // Count number of dups
+  // foreach ($data as $full => $entries) {
+    // if (count($entries) > 1) {
+      // dpr(count($entries) . " enteries for $full");
+      // dpr($entries);
+    // }
+  // }
+
+
+
+  // DONE:
+  // Figure out which relative URLs in the original site point to what nodes
+  // and terms in the current site.  Build a lookup table at behave_data_url
+  // to record this.
+
+  /*
+    -- --------------------------------------------------------
+
+    --
+    -- Table structure for table `behave_data_url`
+    --
+
+    CREATE TABLE IF NOT EXISTS `behave_data_url` (
+      `id` int(11) NOT NULL AUTO_INCREMENT,
+      `url_base` varchar(255) COLLATE utf8_unicode_ci NOT NULL COMMENT 'Base url from original dataset (everything after the final ''/'')',
+      `url_full` varchar(255) COLLATE utf8_unicode_ci NOT NULL COMMENT 'Full url as given in the original dataset.',
+      `type` enum('node','term') COLLATE utf8_unicode_ci NOT NULL COMMENT 'In Drupal, is this a node or term',
+      `drupal_id` int(11) NOT NULL COMMENT 'NID or TID in Drupal',
+      PRIMARY KEY (`id`),
+      KEY `url_base` (`url_base`)
+    ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci AUTO_INCREMENT=1 ;
+  */
+
+  // Start with Definitions, which are linked to terms
+  // $terms = build_lookup('terms');
+//
+  // $results = db_query("
+    // SELECT * FROM {data_definitions}
+    // WHERE url IS NOT NULL
+  // ");
+  // $data = array();
+  // while ($row = db_fetch_object($results)) {
+    // if (isset($data[$row->ID])) {
+      // dpr("Duplicate URL for: "); dpr($row);
+      // continue;
+    // }
+    // if (!isset($terms[$row->ID])) {
+      // dpr("Bogus original term ID"); dpr($row);
+      // continue;
+    // }
+    // $data[$row->ID] = $row;
+  // }
+//
+  // foreach ($data as $row) {
+    // $base = basename($row->url);
+    // $result = db_query("
+      // INSERT INTO {data_url}
+      // (url_base, url_full, type, drupal_id)
+      // VALUES ('%s', '%s', '%s', %d)
+    // ", $base, $row->url, 'term', $terms[$row->ID]);
+    // if (!$result) {
+      // $count = "Error with original term ID $row->ID";
+    // }
+  // }
+
+  //DONE:
+  // People
+  // $people = build_lookup('people');
+  // $results = db_query("
+    // SELECT * FROM {data_people}
+    // WHERE OldURL IS NOT NULL
+  // ");
+  // $data = array();
+  // while ($row = db_fetch_object($results)) {
+    // if (isset($data[$row->ID])) {
+      // dpr("Duplicate URL for: "); dpr($row);
+      // continue;
+    // }
+    // if (!isset($people[$row->PersonID])) {
+      // dpr("Bogus original node ID"); dpr($row);
+      // continue;
+    // }
+    // $data[$row->PersonID] = $row;
+  // }
+//
+  // foreach ($data as $row) {
+    // $base = basename($row->OldURL);
+    // $result = db_query("
+      // INSERT INTO {data_url}
+      // (url_base, url_full, type, drupal_id)
+      // VALUES ('%s', '%s', '%s', %d)
+    // ", $base, $row->OldURL, 'node', $people[$row->PersonID]);
+    // if ($result) {
+      // $count[] = "Added $row->OldURL points to node ID " . $people[$row->PersonID];
+    // }
+    // else {
+      // $count[] = "Error with original person ID $row->PersonID";
+    // }
+  // }
+
+  // Drug Combos
+  // $combos = build_lookup('combinations');
+//
+  // $results = db_query("
+    // SELECT * FROM {data_drug_combinations}
+    // WHERE file IS NOT NULL
+  // ");
+  // $data = array();
+  // while ($row = db_fetch_object($results)) {
+    // if (isset($data[$row->ID])) {
+      // dpr("Duplicate URL for: "); dpr($row);
+      // continue;
+    // }
+    // if (!isset($combos[$row->ID])) {
+      // dpr("Bogus original term ID"); dpr($row);
+      // continue;
+    // }
+    // $data[$row->ID] = $row;
+  // }
+//
+  // foreach ($data as $row) {
+    // // Original dataset only provides basename
+    // // $base = basename($row->file);
+    // $result = db_query("
+      // INSERT INTO {data_url}
+      // (url_base, url_full, type, drupal_id)
+      // VALUES ('%s', '%s', '%s', %d)
+    // ", $row->file, $row->file, 'node', $combos[$row->ID]);
+    // if ($result) {
+      // $count[] = "Added $row->file points to node ID " . $combos[$row->ID];
+    // }
+    // else {
+      // $count[] = "Error with original combo ID $row->ID";
+    // }
+  // }
+
+  // Generics
+  // $generics = build_lookup('generic_names');
+  // $results = db_query("
+    // SELECT * FROM {data_drug_generic_names}
+    // WHERE filename IS NOT NULL
+  // ");
+  // $data = array();
+  // while ($row = db_fetch_object($results)) {
+    // if (isset($data[$row->ID])) {
+      // dpr("Duplicate URL for: "); dpr($row);
+      // continue;
+    // }
+    // if (!isset($generics[$row->ID])) {
+      // dpr("Bogus original term ID"); dpr($row);
+      // continue;
+    // }
+    // $data[$row->ID] = $row;
+  // }
+//
+  // foreach ($data as $row) {
+    // $base = basename($row->filename);
+    // $result = db_query("
+      // INSERT INTO {data_url}
+      // (url_base, url_full, type, drupal_id)
+      // VALUES ('%s', '%s', '%s', %d)
+    // ", $base, $row->filename, 'node', $generics[$row->ID]);
+    // if ($result) {
+      // $count[] = "Added $row->filename points to node ID " . $generics[$row->ID];
+    // }
+    // else {
+      // $count[] = "Error with original combo ID $row->ID";
+    // }
+  // }
+
+  // Terms -- note may cause dups with definitions, but we'll weed those out later.
+  // $terms = build_lookup('terms');
+  // $results = db_query("
+    // SELECT * FROM {data_term}
+    // WHERE URL_file IS NOT NULL
+  // ");
+  // $data = array();
+  // while ($row = db_fetch_object($results)) {
+    // if (isset($data[$row->ID])) {
+      // dpr("Duplicate URL for: "); dpr($row);
+      // continue;
+    // }
+    // if (!isset($terms[$row->ID])) {
+      // dpr("Bogus original term ID"); dpr($row);
+      // continue;
+    // }
+    // $data[$row->ID] = $row;
+  // }
+  // // dpr($data); exit;
+//
+  // foreach ($data as $row) {
+    // $base = basename($row->URL_file);
+    // $result = db_query("
+      // INSERT INTO {data_url}
+      // (url_base, url_full, type, drupal_id)
+      // VALUES ('%s', '%s', '%s', %d)
+    // ", $base, $row->URL_file, 'term', $terms[$row->ID]);
+    // if ($result) {
+      // $count[] = "Added URL to point $base to term ID " . $terms[$row->ID];
+    // }
+    // else {
+      // $count[] = "Error with original term ID $row->ID";
+    // }
+  // }
+
+  // DONE:
+  // Update generic node info for drugs that have moved from onc
+  // vocab to another.  Current only handles the move from clinical
+  // class to effect class.
+  $results = db_query("
+    SELECT nid FROM {node}
+    WHERE type = 'generic'
+  ");
+  $count = array();
+  while ($nid = db_result($results)) {
+    $node = node_load($nid);
+    $found_errors = FALSE;
+
+    // Collect existing Content Taxonomy entries for effect and clinical classes
+    $effects = $clinicals = array();
+    foreach ($node->field_effect_class as $info) {
+      if (!empty($info['value'])) {
+        $effects[] = $info['value'];
+      }
+    }
+    foreach ($node->field_clinical_class as $info) {
+      if (!empty($info['value'])) {
+        $clinicals[] = $info['value'];
+      }
+    }
+
+    // Sync Content Taxonomy entries with what's stored in $node->taxonomy
+    foreach ($node->taxonomy as $tid => $term) {
+      // Clinical class vid = 10, Effect class vid = 12
+      if (10 == $term->vid) {
+        // Is it in the CT entry?
+        if (!in_array($tid, $clinicals)) {
+          dpr('Found a missing clinical class entry in ' . $node->title);
+          $found_errors = TRUE;
+          if (empty($node->field_clinical_class[0]['value'])) {
+            $node->field_clinical_class[0]['value'] = $tid;
+          }
+          else {
+            $node->field_clinical_class[] = array('value' => $tid);
+          }
+        }
+        if (in_array($tid, $effects)) {
+          dpr('... and it is marked as effect class instead');
+          foreach ($node->field_effect_class as $index => $item) {
+            if ($tid == $item['value']) {
+              unset ($node->field_effect_class[$index]);
+            }
+          }
+        }
+      }
+      else if (12 == $term->vid) {
+        if (!in_array($tid, $effects)) {
+          $found_errors = TRUE;
+          dpr('Found a missing effect class entry in ' . $node->title);
+          if (empty($node->field_effect_class[0]['value'])) {
+            $node->field_effect_class[0]['value'] = $tid;
+          }
+          else {
+            $node->field_effect_class[] = array('value' => $tid);
+          }
+        }
+        if (in_array($tid, $clinicals)) {
+          dpr('... and it is marked as clinical class instead');
+          foreach ($node->field_clinical_class as $index => $item) {
+            if ($tid == $item['value']) {
+              unset ($node->field_clinical_class[$index]);
+            }
+          }
+        }
+      }
+    }
+
+    if ($found_errors) {
+      $count[] = $node->title;
+      _bh_compress_field($node, 'field_clinical_class');
+      _bh_compress_field($node, 'field_effect_class');
+      dpr($node->field_clinical_class);
+      dpr($node->field_effect_class);
+
+      node_save($node);
+    }
+  }
+
+
+  // DONE:
+  // Associate imported directory info with locales
+  $dirs = build_lookup('directories');
+  $terms = build_lookup('terms');
+
+  $results = db_query("
+    SELECT links.*, locale.Locale AS locale_name, states.Field1 AS state_name, def.Type AS type
+    FROM {data_directory_links_location_relation} AS links
+    INNER JOIN {data_directory_links_definition_relation} AS def
+      ON def.Link = links.Link
+    INNER JOIN {data_states} AS states
+      ON states.ID = links.State
+    LEFT JOIN {data_locale} AS locale
+      ON locale.ID = links.Locale
+    WHERE links.Link IS NOT NULL
+      AND def.Type != 5479
+    ");
+  $data = array();
+  while ($row = db_fetch_object($results)) {
+    $data[$row->Link][] = $row;
+  }
+  dpr('Working on ' . count($data) . ' rows');
+
+  $states = array();  // Store state terms so we don't have to look them up over and over
+  $types = array();   // Ditto directory types
+
+  foreach ($data as $dir_old_id => $locations) {
+    if (!isset($dirs[$dir_old_id])) {
+      dpr("Bogus directory link specified: $dir_old_id");
+      continue;
+    }
+    $node = node_load($dirs[$dir_old_id]);
+
+    foreach ($locations as $location) {
+      if (empty($location->state_name)) {
+        dpr("Bogus state specified");
+        dpr($location);
+        continue;
+      }
+
+      // Check if we have data for this state, collect if we don't
+      if (!isset($states[$location->state_name])) {
+        $possible = taxonomy_get_term_by_name($location->state_name);
+        foreach ($possible as $option) {
+          if (13 != $option->vid) {
+            continue;
+          }
+          else {
+            $states[$location->state_name] = $option;
+            break;
+          }
+        }
+      }
+
+      if (!isset($types[$location->type])) {
+        $type = taxonomy_get_term($terms[$location->type]);
+        if (empty($type)) {
+          dpr("Bogus type specified"); dpr($location);
+          continue;
+        }
+        $types[$location->type] = $type;
+      }
+
+      // If locale exists, then use that plus the parent state to find the appropriate
+      // location term.  Otherwise, just use the state name
+      $term_to_add = array();
+      if (empty($location->locale_name)) {
+        // Just associate with the state.
+        $term_to_add = $states[$location->state_name];
+      }
+      else {
+        // Find the location with the correct state as a parent
+        $possible = taxonomy_get_term_by_name($location->locale_name);
+        foreach ($possible as $option) {
+          if (13 != $option->vid) {
+            continue;
+          }
+          else {
+            $parents = taxonomy_get_parents($option->tid);
+            // NOTE: we know there is only one parent for each location
+            $parent = array_pop($parents);
+            if ($parent->name == $location->state_name) {
+              $term_to_add = $option;
+            }
+            else {
+              continue;
+            }
+          }
+        }
+      }
+
+      if (empty($term_to_add)) {
+        // We missed this location in the initial import due to confusion over ID vs. Link ID
+        $term = array(
+          'vid' => 13,
+          'name' => $locale->locale_name,
+          'parent' => array($states[$location->state_name]->tid),
+        );
+        taxonomy_save_term($term);
+        $term_to_add = (object)$term;
+      }
+      // Add location and type to node
+      $type = $types[$location->type];
+      $node->taxonomy[$term_to_add->tid] = $term_to_add;
+      $node->taxonomy[$type->tid] = $type;
+      if (empty($node->field_location[0]['value'])) {
+        $node->field_location[0]['value'] = $term_to_add->tid;
+      }
+      else {
+        $node->field_location[] = array('value' => $term_to_add->tid);
+      }
+
+      // Reset terms to remove old imported data.  Since these are recent
+      // imports, we know there are no other terms associated with them
+      $node->field_general_terms = array(0 => array('value' => ''));
+      _bh_add_term($node, $type->tid);
+
+    }     // foreach ($locations as $location) {
+
+    // Clean up locations in case we have duplicates
+    $all_locs = array();
+    foreach ($node->field_location as $entry) {
+      if (!empty($entry['value'])) {
+        $all_locs[] = $entry['value'];
+      }
+      $all_locs = array_unique($all_locs);
+    }
+    $node->field_location = array();
+    for ($i = 0; $i < count($all_locs); $i++) {
+      $node->field_location[$i] = array('value' => $all_locs[$i]);
+    }
+
+    node_save($node);
+    dpr("Updated $node->title");
+  }
+
+
+
+  // DONE:
+  // First setup Location taxonomy heirarchy
+  $results = db_query("
+    SELECT links.*, locale.Locale AS locale_name, states.Field1 AS state_name, def.Type AS type
+    FROM {data_directory_links_location_relation} AS links
+    INNER JOIN {data_states} AS states
+      ON states.ID = links.State
+    INNER JOIN {data_locale} AS locale
+      ON locale.ID = links.Locale
+    INNER JOIN {data_directory_links_definition_relation} AS def
+      ON def.Link = links.ID
+    WHERE links.State IS NOT NULL
+      AND links.Locale IS NOT NULL
+      AND def.Type != 5479
+  ");
+  $data = array();
+  while ($row = db_fetch_object($results)) {
+    if (!isset($data[$row->state_name][$row->locale_name])) {
+      $data[$row->state_name][$row->locale_name] = $row;
+    }
+  }
+
+  foreach ($data as $state => $locales) {
+    $possible = taxonomy_get_term_by_name($state);
+    $state_term = array();
+    foreach ($possible as $option) {
+      if (13 != $option->vid) {
+        continue;
+      }
+      else {
+        $state_term = $option;
+        break;
+      }
+    }
+
+    if (empty($state_term)) {
+      dpr("Bogus state specified: $state");
+    }
+
+    // Add each locale as a child to this state
+    foreach ($locales as $locale) {
+      $term = array(
+        'vid' => 13,
+        'name' => $locale->locale_name,
+        'parent' => array($state_term->tid),
+      );
+      taxonomy_save_term($term);
+      dpr("Added $locale->locale_name to $state_term->name");
+    }
+  }
+
+
+  // DONE:
+  // Convert drug combo titles from default value to the first title listed
+  // in the content.  Rely on auto_nodetitle to handle the processing
+  $results = db_query("
+    SELECT nid FROM {node} WHERE type LIKE 'combinations'
+  ");
+  while ($row = db_fetch_object($results)) {
+    $node = node_load($row->nid);
+    if (empty($node)) {
+      dpr('wtf? ' . $row->nid); continue;
+    }
+    $node->title = '';
+    node_save($node);
+    dpr("updated $node->title");
+  }
+
+
+
+  // DONE:
+  // Double check current book -> term data with original dataset. Only flag those
+  // that have data in the original dataset, but not in the current data as
+  // new terms may have since been added.
+  $books = build_lookup('book');
+  $terms = build_lookup('terms');
+  // dpr($terms);
+
+    // WHERE Book = 897
+  $results = db_query("
+    SELECT * FROM {data_book_term_relation}
+    WHERE Book IS NOT NULL
+      AND Term IS NOT NULL
+  ");
+  $data = array();
+  while ($row = db_fetch_object($results)) {
+    if (!isset($books[$row->Book])) {
+      dpr("Invalid book ID"); dpr($row);
+      continue;
+    }
+    if (!isset($terms[$row->Term])) {
+      dpr("Invalid term ID"); dpr($row);
+      continue;
+    }
+
+    $data[$books[$row->Book]][] = $terms[$row->Term];
+  }
+
+  $added = array();
+  foreach ($data as $nid => $tids) {
+    $node = node_load($nid);
+    foreach ($tids as $tid) {
+      if (10730 == $tid) {
+        // Skip Advocacy Organization, which was added incorrectly in the original dataset
+        continue;
+      }
+      if (_bh_add_term($node, $tid)) {
+        $term = taxonomy_get_term($tid);
+        $added[$node->title][] = $term->name;
+      }
+    }
+    if (isset($added[$node->title])) {
+      node_save($node);
+      dpr("updated $node->title");
+    }
+  }
+  dpr($added);
+
+
+  // DONE:
+  // Update terms for people
+  $people = build_lookup('people');
+  $books = build_lookup('book');
+  $movies = build_lookup('movies');
+  $terms = build_lookup('terms');
+
+  $results = db_query("
+    SELECT * FROM {data_people_term_drug_relation}
+    WHERE Person IS NOT NULL
+  ");
+  $cols = array('Term', 'Book', 'Movie', 'Prof', 'Prsn');
+  $data = array();
+  while ($row = db_fetch_object($results)) {
+    if (!isset($people[$row->Person])) {
+      dpr("Bogus person: "); dpr($row);
+      continue;
+    }
+    foreach ($cols as $col) {
+      if (!empty($row->$col)) {
+        $data[$people[$row->Person]][$col][] = $row->$col;
+      }
+    }
+  }
+
+  foreach ($data as $pid => $items) {
+    $node = node_load($pid);
+    if (isset($items['Term'])) {
+      foreach ($items['Term'] as $tid) {
+        if (!isset($terms[$tid])) {
+          dpr("Bogus tid specified for $node->title: $tid");
+          dpr($items);
+          continue;
+        }
+        _bh_add_term($node, $terms[$tid]);
+      }
+    }
+    if (isset($items['Prof'])) {
+      foreach ($items['Prof'] as $tid) {
+        if (!isset($terms[$tid])) {
+          dpr("Bogus tid specified for $node->title: $tid");
+          dpr($items);
+          continue;
+        }
+        _bh_add_term($node, $terms[$tid]);
+      }
+    }
+
+    if (isset($items['Prsn'])) {
+      if (!isset($node->field_general_related_content)) {
+        $node->field_general_related_content = array(0 => array());
+      }
+      foreach ($items['Prsn'] as $person) {
+        _bh_add_noderef($node, 'field_general_related_content', $people[$person]);
+      }
+    }
+
+    // Relate this person to books/movies -- nevermind, already imported.
+    // if (isset($items['Book'])) {
+      // foreach ($items['Book'] as $book_id) {
+        // if (!isset($books[$book_id])) {
+          // dpr("Bogus book id ($book_id) specified");
+          // dpr($items);
+          // continue;
+        // }
+        // $book = node_load($books[$book_id]);
+        // dpr("Person is $node->nid");
+        // dpr($book); exit;
+      // }
+    // }
+
+    dpr("Updated $node->title");
+    node_save($node);
+
+  }
+
+
+  // Check what medline info has changed since the original import
+  $generics = build_lookup('generic_names');
+  $results = db_query("
+    SELECT ID as id, Medline_Plus_info AS medline
+    FROM {data_drug_generic_names}
+    WHERE Medline_Plus_info IS NOT NULL
+  ");
+  $ok = array();
+  $bad = array();
+  while ($row = db_fetch_object($results)) {
+    if (!isset($generics[$row->id])) {
+      dpr("Bogus entry at ID $row->id");
+      continue;
+    }
+    $node = node_load($generics[$row->id]);
+    if ($node->field_generic_medline_url[0]['value'] != $row->medline) {
+      $bad[] = "$node->title should be $row->medline";
+    }
+    else {
+      $ok[] = $node->title;
+    }
+  }
+
+  dpr(count($ok) . ' generics were correct');
+  dpr(count($bad) . ' generics had incorrect medline info based on the original import:');
+  dpr(join("\n", $bad));
+
+  // DONE:
+  // Grab alternate spellings for generics
+  $generics = build_lookup('generic_names');
+  $results = db_query("
+
+      SELECT * FROM {data_drug_alternate_generic_names}
+    WHERE generic IS NOT NULL
+      AND alt_spelling IS NOT NULL
+  ");
+  $alts = array();
+  while ($row = db_fetch_object($results)) {
+    if (!isset($generics[$row->generic])) {
+      dpr('Bogus generic specified: ');
+      dpr($row);
+      continue;
+    }
+    $alts[$generics[$row->generic]][] = $row->alt_spelling;
+  }
+
+  // Load each generic and check for missing alt spellings, adding as needed.
+  foreach ($alts as $nid => $alt_spellings) {
+    $node = node_load($nid);
+    $existing = array();
+    foreach ($node->field_generic_alt_name as $name) {
+      $existing[] = $name['value'];
+    }
+
+    // We'll overwrite the array so we can compact it, just in case it got
+    // tweaked by a previous import
+    $to_add = $existing;
+    foreach ($alt_spellings as $spelling) {
+      if (!in_array($spelling, $existing)) {
+        $to_add[] = $spelling;
+      }
+    }
+
+    if (empty($to_add)) {
+      continue;
+    }
+
+    $node->field_generic_alt_name = array();
+    foreach ($to_add as $spelling) {
+      $node->field_generic_alt_name[] = array('value' => $spelling);
+    }
+
+    node_save($node);
+    dpr("updated $node->title to " . count($to_add) . ' alt spellings');
+  }
+
+  $list_tids = taxonomy_get_related(7627);
+  foreach ($list_tids as $term) {
+    $nid = taxonomy_tweaks_get_extras($term->tid);
+    $extras = '';
+    if (!empty($nid)) {
+      $extras = node_load($nid);
+    }
+    else {
+      $extras = node_load(_taxonomy_tweaks_create_extras($term->tid));
+    }
+    $extras->field_tt_extras_credit = array(0 => array('nid' => 19732));
+    node_save($extras);
+    dpr("Updated $term->name ($term->tid) with a new credit");
+  }
+
+
+  // DONE: Associate Books with the appropriate related content
+  $books = build_lookup('book');
+  $people = build_lookup('people');
+
+  $results = db_query("
+    SELECT ID, Person, Book
+    FROM {data_people_term_drug_relation}
+    WHERE Person IS NOT NULL
+      AND Book IS NOT NULL
+  ");
+  $book_people = array();    // Book nid => array(person nid1, person nid2, ...)
+  while ($row = db_fetch_object($results)) {
+    if (!isset($people[$row->Person])) {
+      dpr("Bogus person ID ($row->Person) in row ID $row->ID");
+      continue;
+    }
+    if (!isset($books[$row->Book])) {
+      dpr("Bogus book ID ($row->Book) in row ID $row->ID");
+      continue;
+    }
+    $book_people[$books[$row->Book]][] = $people[$row->Person];
+  }
+
+  foreach($book_people as $book_nid => $people_ids) {
+    $node = node_load($book_nid);
+    _bh_add_noderef($node, 'field_general_related_content', $people_ids);
+    node_save($node);
+    dpr("Updated $node->title");
+  }
+
+
+  // DONE: set credit for all items in the stuttering list.
+  //  (reused for Sleep disorders)
+  $list_tids = taxonomy_get_related(8349);
+  foreach ($list_tids as $term) {
+    $nid = taxonomy_tweaks_get_extras($term->tid);
+    $extras = '';
+    if (!empty($nid)) {
+      $extras = node_load($nid);
+      dpr("using existing");
+    }
+    else {
+      $extras = node_load(_taxonomy_tweaks_create_extras($term->tid));
+    }
+    $extras->field_tt_extras_credit = array(0 => array('nid' => 19732));
+    node_save($extras);
+    dpr("Updated $term->name ($term->tid) with a new credit");
+  }
+
+
+
+// DONE:
+  $terms = build_lookup('terms');
+
+  // $credits = array();
+  // $results = db_query("
+    // SELECT * FROM {data_credits}
+    // WHERE Credit IS NOT NULL
+      // AND CreditID IS NOT NULL
+  // ");
+  // while ($row = db_fetch_object($results)) {
+    // $credits[$row->CreditID] = $row->Credit;
+  // }
+  $credits = build_lookup('credits');
+
+  $results = db_query("
+    SELECT ID, Credit, Term
+    FROM {data_term_term_drug_relation}
+    WHERE Credit IS NOT NULL
+      AND Term IS NOT NULL
+  ");
+  while ($row = db_fetch_object($results)) {
+    if (empty($terms[$row->Term])) {
+      dpr("Bogus term ID in term_term_drug_relation: ");
+      dpr($row);
+      continue;
+    }
+    if (empty($credits[$row->Credit])) {
+      dpr("Bogus credit specified in term_term_drug_relation:");
+      dpr($row);
+      continue;
+    }
+
+    $term = taxonomy_get_term($terms[$row->Term]);
+    $nid = taxonomy_tweaks_get_extras($term->tid);
+    $extras = '';
+    if (!empty($nid)) {
+      $extras = node_load($nid);
+    }
+    else {
+      $extras = node_load(_taxonomy_tweaks_create_extras($term->tid));
+    }
+    $extras->field_tt_extras_credit = array(0 => array('nid' => $credits[$row->Credit]));
+    node_save($extras);
+    dpr("Updated $term->name ($term->tid) with a new credit");
+  }
+
+
+  // DONE:
+  // Collect a list of all clinical class terms from Drupal as we moved a bunch
+  // after the original import
+  $classes = build_lookup('clinical_classes');
+  $generics = build_lookup('generic_names');
+  $drugs = array();     // generic_nid => array(clinical_tids)
+  foreach ($classes as $old_id => $tid) {
+    $results = db_query("
+      SELECT * FROM {data_term_term_drug_relation}
+      WHERE Member = $old_id
+        AND Gnrc IS NOT NULL
+    ");
+    while ($row = db_fetch_object($results)) {
+      if (isset($generics[$row->Gnrc])) {
+        $gnid = $generics[$row->Gnrc];
+        if (empty($drugs[$gnid])) {
+          $drugs[$gnid] = array();
+        }
+        $drugs[$gnid][] = $tid;
+      }
+      else {
+        dpr("missing generic for " . $generics[$row->Gnrc]); dpr($row);
+      }
+    }
+  }
+
+  // Update generics to include all clinical classes
+  foreach ($drugs as $nid => $tids) {
+    $node = node_load($nid);
+    $updated = FALSE;
+    foreach ($tids as $tid) {
+      if (isset($node->taxonomy[$tid])) {
+        // already associated with this clinical class
+        continue;
+      }
+      else {
+        // Handle Content taxonomy field...
+        if (empty($node->field_clinical_class[0]['value'])) {
+          $node->field_clinical_class[0]['value'] = $tid;
+        }
+        else {
+          $node->field_clinical_class[] = array('value' => $tid);
+        }
+
+        // ... And core taxonomy field
+        $term = taxonomy_get_term($tid);
+        $node->taxonomy[$tid] = $term;
+        dpr("Updated $node->title to include $term->name");
+        $updated = TRUE;
+      }
+    }
+    node_save($node);
+    if (!$updated) {
+      dpr("$node->title is up to date");
+    }
+  }
+
+
+  // DONE: Reimport Medline URLs
+  $generics = build_lookup('generic_names');
+
+  $results = db_query("
+    SELECT * FROM {data_drug_generic_names} AS g
+    WHERE g.Medline_Plus_info IS NOT NULL
+  ");
+  $medline = array();   // nid => URL
+  while ($row = db_fetch_object($results)) {
+    if (!isset($generics[$row->ID])) {
+      dpr("bogus entry:"); dpr($row);
+    }
+    else {
+      $nid = $generics[$row->ID];
+      if (isset($medline[$nid])) {
+        dpr("Duplicate entry:"); dpr($row);
+      }
+      else {
+        $medline[$nid] = $row->Medline_Plus_info;
+      }
+    }
+  }
+
+  foreach ($medline as $nid => $url) {
+    $node = node_load($nid);
+    // NOTE: Only updating if not null
+    if (empty($node->field_generic_medline_url[0]['value'])) {
+      $node->field_generic_medline_url = array(0 => array('value' => $url));
+      node_save($node);
+      dpr("updated Medline URL for $node->title");
+    }
+  }
+
+  // FINISHED
+  // updates generics to reflect the change in vocab from action to clinical class
+  $results = db_query("
+    SELECT * FROM {node} AS n
+    WHERE n.type = 'generic'
+  ");
+  $nids = array();
+  while ($row = db_fetch_object($results)) {
+    $nids[] = $row->nid;
+  }
+
+  // vid => CCK field name (content taxonomy fields)
+  $check = array(3 => 'field_chemical_class', 2 => 'field_isomer', 10 => 'field_clinical_class', 9 => 'field_actions');
+  foreach($nids as $nid) {
+    $node = node_load($nid);
+    foreach ($check as $vid => $field) {
+      // Check that the terms associated with this node are in the correct CCK fields.
+      $done = array();
+      foreach ($node->$field as $index => $info) {
+        if (!empty($info['value'])) {
+          if (!in_array($info['value'], array_keys($node->taxonomy))) {
+            dpr("Missing taxonomy entry:"); dpr($node);
+          }
+          else {
+            if (in_array($info['value'], $done)) {
+              dpr("Erasing $field at $index");
+              if (0 == $index) {
+                $node->{$field}[$index] = array('value' => '');
+              }
+              else {
+                unset($node->{$field}[$index]);
+              }
+              dpr($node->{$field});
+              continue;
+            }
+            else {
+              $done[] = $info['value'];
+            }
+            $term = taxonomy_get_term($info['value']);
+            if ($vid != $term->vid) {
+              dpr("uh oh...  $term->name is not a $field ($vid) but a " . $check[$term->vid]);
+              if (empty($node->{$check[$term->vid]}[0]['value'])) {
+                $node->{$check[$term->vid]}[0]['value'] = $term->tid;
+              }
+              else {
+                $node->{$check[$term->vid]}[] = array('value' => $term->tid);
+              }
+              $node->taxonomy[$term->tid] = $term;
+
+              // Delete from $node->$field
+              dpr("Erasing $field at $index");
+              if (0 == $index) {
+                $node->{$field}[$index] = array('value' => '');
+              }
+              else {
+                unset($node->{$field}[$index]);
+              }
+              dpr($node->{$field});
+
+              // dpr($node->{$check[$term->vid]});
+            }
+          }
+        }
+      }
+    }
+
+    // Remove any dups or blanks from the CCK fields
+    foreach ($check as $vid => $field) {
+      $terms = array();
+      foreach ($node->$field as $index => $info) {
+        if (!empty($info['value'])) {
+          $terms[] = $info['value'];
+        }
+      }
+      $terms = array_unique($terms);
+      dpr("terms is for $field is");
+      dpr($terms);
+      if (empty($terms)) {
+        $node->$field = array(0 => array('value' => ''));
+      }
+      else {
+        $node->$field = array();
+        foreach ($terms as $tid) {
+          $node->{$field}[] = array('value' => $tid);
+        }
+      }
+    }
+
+    node_save($node);
+    // dpr($node);
+    dpr("updated $node->title ($node->nid)");
+
+  }
+
+
+
+
+
+  // Fix missing hierarchy information
+  $results = db_query("
+    SELECT * FROM {term_data} AS t
+    WHERE t.tid IS NOT NULL
+  ");
+  $tids = array();
+  while ($row = db_fetch_object($results)) {
+    $tids[$row->tid] = $row->name;
+  }
+
+  foreach ($tids as $tid => $name) {
+    $parent = db_result(db_query("
+      SELECT h.parent FROM {term_hierarchy} AS h
+      WHERE tid = %d
+    ", $tid));
+    if (!is_numeric($parent)) {
+      db_query("INSERT INTO {term_hierarchy} (tid, parent) VALUES(%d, 0)", $tid);
+      dpr("$name ($tid) has been updated");
+    }
+  }
+
+
+
+
+
+
+  // Associate Actions and Clinical Class with generics
+  $terms = build_lookup('terms');
+
+  // Collect and validate actions
+  $results = db_query("
+    SELECT *
+    FROM {data_term_term_drug_relation}
+    WHERE Member = 5408
+  ");
+  $actions = array();
+  while ($row = db_fetch_object($results)) {
+    if (!isset($terms[$row->Term])) {
+      dpr("bogus action Term in"); dpr($row); continue;
+    }
+    $term = taxonomy_get_term($terms[$row->Term]);
+    if (9 != $term->vid) {
+      dpr("Action Term in wrong vocab"); dpr($term);
+      $term->vid = 9;
+      $related = taxonomy_get_related($term->tid);
+      if (!empty($related)) {
+        $term->relations = array_keys($related);
+      }
+      $parents = taxonomy_get_parents($term->tid);
+      if (!empty($parents)) {
+        $term->parent = array_keys($parents);
+      }
+
+      $term = (array)$term;
+      taxonomy_save_term($term);
+      // dpr('new term would be');
+      // dpr($term);
+    }
+    $actions[] = $row->Term;
+  }
+  // Collect and validate clinical classes
+  $results = db_query("
+    SELECT *
+    FROM {data_term_term_drug_relation}
+    WHERE Member = 5405
+  ");
+  $clinicals = array();
+  while ($row = db_fetch_object($results)) {
+    if (!isset($terms[$row->Term])) {
+      dpr("bogus clinical class term in"); dpr($row); continue;
+    }
+    $term = taxonomy_get_term($terms[$row->Term]);
+    if (10 != $term->vid) {
+      dpr("Clinical class Term in wrong vocab");
+      $term->vid = 10;
+      $related = taxonomy_get_related($term->tid);
+      if (!empty($related)) {
+        $term->relations = array_keys($related);
+      }
+      $parents = taxonomy_get_parents($term->tid);
+      if (!empty($parents)) {
+        $term->parent = array_keys($parents);
+      }
+
+      $term = (array)$term;
+      taxonomy_save_term($term);
+      // dpr('new term would be');
+      // dpr($term);
+    }
+    $clinicals[] = $row->Term;
+  }
+
+  dpr('collected ' . count($actions) . ' actions and ' . count($clinicals) . ' clinical classes');
+
+  $generics = build_lookup('generic_names');
+
+  // Associate actions
+  foreach ($actions as $action) {
+    $results = db_query("
+      SELECT Gnrc, Member, ID
+      FROM {data_term_term_drug_relation}
+      WHERE Member = $action
+        AND Gnrc IS NOT NULL
+    ");
+    while ($row = db_fetch_object($results)) {
+      if (!isset($generics[$row->Gnrc])) {
+        dpr("bogus action generic specified: $row->Gnrc on ID $row->ID");
+        continue;
+      }
+      $node = node_load($generics[$row->Gnrc]);
+      $term = taxonomy_get_term($terms[$row->Member]);
+
+      // Sanity check
+      if (empty($term) || 9 != $term->vid) {
+        dpr("something's wrong with the term:"); dpr($term); dpr($row);
+        continue;
+      }
+
+      if (empty($node->field_clinical_class[0]['value'])) {
+        $node->field_clinical_class[0]['value'] = $term->tid;
+      }
+      else {
+        $node->field_clinical_class[] = array('value' => $term->tid);
+      }
+      $node->taxonomy[$term->tid] = $term;
+
+      node_save($node);
+      dpr("Updated $node->title");
+    }
+  }
+
+  // Associate clinical class
+  foreach ($clinicals as $class) {
+    $results = db_query("
+      SELECT Gnrc, Member, ID
+      FROM {data_term_term_drug_relation}
+      WHERE Member = $class
+        AND Gnrc IS NOT NULL
+    ");
+    while ($row = db_fetch_object($results)) {
+      if (!isset($generics[$row->Gnrc])) {
+        dpr("bogus clinical class generic specified: $row->Gnrc on ID $row->ID");
+        continue;
+      }
+      $node = node_load($generics[$row->Gnrc]);
+      $term = taxonomy_get_term($terms[$row->Member]);
+
+      // Sanity check
+      if (empty($term) || 10 != $term->vid) {
+        dpr("something's wrong with the term:"); dpr($term);
+        continue;
+      }
+
+      if (empty($node->field_actions[0]['value'])) {
+        $node->field_actions[0]['value'] = $term->tid;
+      }
+      else {
+        $node->field_actions[] = array('value' => $term->tid);
+      }
+      $node->taxonomy[$term->tid] = $term;
+
+      node_save($node);
+      dpr("Updated $node->title");
+    }
+  }
+
+
+
+
+
+  // Get list of orphaned acronyms in the original dataset
+  $results = db_query("
+    SELECT acronym, ID
+    FROM {data_acronyms}
+    WHERE acronym IS NOT NULL
+  ");
+  $acros = array();
+  while ($row = db_fetch_object($results)) {
+    $id = db_result(db_query("
+      SELECT ID FROM {data_term_term_drug_relation}
+      WHERE Acro = %d
+    ", $row->ID));
+    if (empty($id)) {
+      dpr($row->acronym);
+    }
+  }
+
+
+  // Move movie and book asin to a general asin field
+  $media = array();
+  $results = db_query("
+    SELECT vid, nid, field_movie_asin_asin AS asin
+    FROM {content_type_movie}
+    WHERE field_movie_asin_asin IS NOT NULL
+  ");
+  while ($row = db_fetch_object($results)) {
+    $media[] = $row;
+  }
+  $results = db_query("
+    SELECT vid, nid, field_book_asin_asin AS asin
+    FROM {content_type_book}
+    WHERE field_book_asin_asin IS NOT NULL
+  ");
+  while ($row = db_fetch_object($results)) {
+    $media[] = $row;
+  }
+
+
+  foreach($media as $row) {
+    $result = db_query("
+      DELETE FROM {content_field_general_asin}
+      WHERE nid = %d
+    ", $row->nid);
+    $result = db_query("
+      INSERT INTO {content_field_general_asin}
+      (vid, nid, field_general_asin_asin)
+      VALUES (%d, %d, '%s')
+    ", $row->vid, $row->nid, $row->asin);
+    dpr("Updaing $row->nid gave $result");
+  }
+
+  exit;
+
+  $combos = build_lookup('combinations');
+  $generics = build_lookup('generic_names');
+  $movies = build_lookup('movies');
+  $preps = build_lookup('preparations');
+  $sources = build_lookup('drug_sources');
+  // dpr($combos); dpr($generics); dpr($preps); dpr($sources); exit;
+
+  $results = db_query("
+    SELECT * FROM {data_movie_drug_relation} AS m
+    WHERE m.Movie IS NOT NULL
+  ");
+  $list = array();
+  while ($row = db_fetch_object($results)) {
+    if (empty($movies[$row->Movie])) {
+      dpr('bogus movie entry:'); dpr($row);
+      continue;
+    }
+
+    // dpr(node_load(18994)); exit;
+    // if (18994 == $movies[$row->Movie]) {
+      // dpr($row);
+    // }
+
+    if (empty($list[$movies[$row->Movie]])) {
+      $list[$movies[$row->Movie]] = array();
+    }
+
+    if (!empty($row->Drug)) {
+      if (empty($generics[$row->Drug])) {
+        dpr('bogus Drug entry: '); dpr($row);
+      }
+      else {
+        $list[$movies[$row->Movie]][] = $generics[$row->Drug];
+      }
+    }
+    if (!empty($row->Combination)) {
+      if (empty($combos[$row->Combination])) {
+        dpr('bogus Combination entry: '); dpr($row);
+      }
+      else {
+        $list[$movies[$row->Movie]][] = $combos[$row->Combination];
+      }
+    }
+    if (!empty($row->Preparation)) {
+      if (empty($preps[$row->Preparation])) {
+        dpr('bogus Preparation entry: '); dpr($row);
+      }
+      else {
+        $list[$movies[$row->Movie]][] = $preps[$row->Preparation];
+      }
+    }
+    if (!empty($row->Src)) {
+      if (empty($sources[$row->Src])) {
+        dpr('bogus Src entry: '); dpr($row);
+      }
+      else {
+        $list[$movies[$row->Movie]][] = $sources[$row->Src];
+      }
+    }
+
+  }
+
+  // dpr($list);exit;
+
+  foreach ($list as $nid => $nids) {
+    $node = node_load($nid);
+    if (empty($node)) {
+      dpr("Error loading $nid");
+      continue;
+    }
+
+    $nids = array_unique($nids);
+    foreach ($nids as $nid) {
+      if (empty($node->field_general_related_content[0]['nid'])) {
+        $node->field_general_related_content[0]['nid'] = $nid;
+      }
+      else {
+        $node->field_general_related_content[] = array('nid' => $nid);
+      }
+    }
+
+    // dpr($node); exit;
+    node_save($node);
+    // dpr($node); exit;
+    dpr("updated node: $node->title");
+  }
+
+  // dpr($movies);
+
+  exit;
+
+
+  // Add all the chemical classes to the appropriate taxonomy (vid == 10)
+  $results = db_query("
+    SELECT * FROM {data_drug_chemical_class} AS c
+    WHERE c.chemical IS NOT NULL
+  ");
+  $chems = array();
+  while ($row = db_fetch_object($results)) {
+    $chems[$row->ID] = $row->chemical;
+  }
+
+  $chemicals = array();
+  foreach($chems as $old_id => $term_name) {
+    $new = array(
+      'name' => $term_name,
+      'vid' => 10,
+    );
+    // taxonomy_save_term($new);
+    // $chemicals[$old_id] = $new['tid'];
+  }
+  // dpr($chemicals);
+
+  // And associate with existing generics
+  $generics = build_lookup('generic_names');
+  $results = db_query("
+    SELECT * FROM {data_drug_generic_names} AS g
+    WHERE g.Chemical_Class IS NOT NULL
+  ");
+  $convert = array();
+  while ($row = db_fetch_object($results)) {
+    if (empty($generics[$row->ID])) {
+      dpr('bogus entry: '); dpr($row);
+      continue;
+    }
+    if (empty($convert[$generics[$row->ID]])) {
+      $convert[$generics[$row->ID]] = array();
+    }
+    $convert[$generics[$row->ID]][] = $row->Chemical_Class;
+  }
+
+  foreach ($convert as $nid => $tids) {
+    $node = node_load($nid);
+    dpr($node);
+    if (empty($node->nid)) {
+      dpr("bogus entry: $nid");
+      continue;
+    }
+  }
+
+  dpr('done');
+  exit;
+
+
+
+
+
+  // Load up existing acronyms with correct status
+  // for ($id = 11402; $id <= 11741; $id++) {
+    // $result = db_query("
+      // INSERT INTO {tax_tweaks}
+      // (tid, is_acronym)
+      // VALUES (%d, 1)
+    // ", $id);
+    // dpr("Inserted $id: $result");
+  // }
+
+
+  // Add acronym for generic drugs
+  // $generics = build_lookup('generic_names');
+  // $results = db_query("
+    // SELECT a.acronym, r.ID, r.Gnrc
+    // FROM {data_term_term_drug_relation} AS r
+    // INNER JOIN {data_acronyms} AS a
+      // ON r.Acro = a.ID
+    // WHERE r.Acro IS NOT NULL
+      // AND r.Gnrc IS NOT NULL
+  // ");
+  // while ($row = db_fetch_object($results)) {
+    // if (!isset($generics[$row->Gnrc])) {
+      // continue;
+    // }
+    // $node = node_load($generics[$row->Gnrc]);
+    // if (empty($node->field_generic_acronyms[0]['value'])) {
+      // $node->field_generic_acronyms[0]['value'] = $row->acronym;
+    // }
+    // else {
+      // $node->field_generic_acronyms[] = array('value' => $row->acronym);
+    // }
+    // node_save($node);
+    // dpr("updated $node->nid to $row->acronym");
+  // }
+//
+
+  // Add acronym for terms as related terms
+  // $terms = build_lookup('terms');
+  // $results = db_query("
+    // SELECT a.acronym, r.ID, r.Term
+    // FROM {data_term_term_drug_relation} AS r
+    // INNER JOIN {data_acronyms} AS a
+      // ON r.Acro = a.ID
+    // WHERE r.Acro IS NOT NULL
+      // AND r.Term IS NOT NULL
+  // ");
+  // while ($row = db_fetch_object($results)) {
+    // if (!isset($terms[$row->Term])) {
+      // dpr("bogus Term ID ($row->Term) on id $row->ID");
+      // continue;
+    // }
+//
+    // dpr($terms[$row->Term]);
+//
+    // $new = array (
+      // 'vid' => 5,
+      // 'name' => $row->acronym,
+    // );
+    // taxonomy_save_term($new);
+    // dpr($new);
+//
+    // // Create relationship between original and the new term
+    // db_query("
+      // INSERT INTO {term_relation}
+      // (tid1, tid2)
+      // VALUES (%d, %d)
+    // ", $terms[$row->Term], $new['tid']);
+//
+    // dpr('added term: ' . $new['name'] . ' as term id '  . $new['tid']);
+  // }
+
+
+  // $sources = build_lookup('drug_sources');
+  // $results = db_query("
+    // SELECT * FROM {data_drug_common_slang_names} AS s
+    // WHERE s.source IS NOT NULL
+  // ");
+  // $import = array();  // nid => array of slang terms
+  // while ($row = db_fetch_object($results)) {
+    // $nid = $sources[$row->source];
+    // if (empty($nid)) {
+      // dpr("Error: Bogus source on ID $row->ID");
+    // }
+    // if (!isset($import[$nid])) {
+      // $import[$nid] = array();
+    // }
+    // $import[$nid][] = $row->name;
+  // }
+//
+  // foreach ($import as $nid => $slangs) {
+    // $node = node_load($nid);
+    // $was = array();
+    // foreach ($node->field_gen_slang_terms as $item) {
+      // $was[] = $item['value'];
+    // }
+    // $node->field_gen_slang_terms = array();
+    // foreach ($slangs as $slang) {
+      // $node->field_gen_slang_terms[] = array('value' => $slang);
+    // }
+    // node_save($node);
+  // }
+//
+  // dpr('done');
+
+
+
+
+  // $last_string = "chr";
+  // $result = db_query_range("
+    // SELECT n.nid, c.field_combo_titles_value AS name
+    // FROM {node} n
+    // LEFT JOIN {content_field_combo_titles} c ON n.vid = c.vid
+    // WHERE n.type = 'combinations'
+      // AND LOWER(c.field_combo_titles_value) LIKE LOWER('%s%%')
+    // ", $last_string, 0, 10);
+//
+  // while ($row = db_fetch_object($result)) {
+    // dpr("Found $row->name");
+  // }
+
+
+  exit;
+
+  // FINISHED: refresh backreferences
+  // No longer needed as we use CNR now and that module has this functionality baked in.
+  // $results = db_query("
+    // SELECT n.nid
+    // FROM {node} AS n
+    // WHERE n.type = 'combinations'
+  // ");
+  // while ($row = db_fetch_object($results)) {
+    // $node = node_load($row->nid);
+    // if (!empty($node)) {
+      // dpr("updating $node->nid");
+      // node_save($node);
+    // }
+    // else {
+      // dpr("bogus nid: $row->nid");
+    // }
+  // }
+
+
+  // Finished:
+  // $combos = build_lookup('combinations');
+  // dpr($combos);
+//
+  // $results = db_query("
+    // SELECT s.name, s.ID, s.combination
+    // FROM {data_drug_common_slang_names} AS s
+    // WHERE s.Combination IS NOT NULL
+  // ");
+  // $errors = 0;
+  // while ($row = db_fetch_object($results)) {
+    // if (!isset($combos[$row->combination])) {
+// //      dpr("Bogus entry at data_drug_common_slang_names: ID: $row->ID, Combo ID: $row->combination, slang name: $row->name");
+      // $errors++;
+      // continue;
+    // }
+//
+    // $node = node_load($combos[$row->combination], NULL, TRUE);
+    // if (empty($node->field_combo_titles[0]['value'])) {
+      // $node->field_combo_titles[0]['value'] = $row->name;
+    // }
+    // else {
+      // $node->field_combo_titles[] = array('value' => $row->name);
+    // }
+    // node_save($node);
+    // dpr("updated $node->nid with $row->name");
+  // }
+//
+  // dpr("Found $errors errors");
+  // exit;
+//
+  // $prep_lookup = build_lookup('preparations');
+  // $source_lookup = build_lookup('drug_sources');
+//
+  // $results = db_query("
+    // SELECT slang.name, slang.preparation, slang.source
+    // FROM {data_drug_common_slang_names} as slang
+    // WHERE slang.name IS NOT NULL
+      // AND (slang.preparation IS NOT NULL
+           // OR slang.source IS NOT NULL)
+  // ");
+  // $slangs = array();
+  // $errors = array();
+  // while($row = db_fetch_object($results)) {
+    // if (!empty($row->preparation) && !isset($prep_lookup[$row->preparation])) {
+      // $errors[] = $row;
+    // }
+    // elseif (!empty($row->source) && !isset($source_lookup[$row->source])) {
+      // $errors[] = $row;
+    // }
+    // else {
+      // $slangs[] = $row;
+    // }
+  // }
+//
+  // $success = array();
+  // foreach($slangs as $slang) {
+    // $node = '';
+    // if (!empty($slang->preparation)) {
+      // $node = node_load($prep_lookup[$slang->preparation]);
+    // }
+    // // NOTE: Verified there are no entries with both prep and source IDs
+    // elseif (!empty($slang->source)) {
+      // $node = node_load($source_lookup[$slang->source]);
+    // }
+//
+    // if (empty($node)) {
+      // $errors = $slang;
+      // continue;
+    // }
+//
+    // if (empty($node->field_gen_slang_terms) || empty($node->field_gen_slang_terms[0]['value'])) {
+      // $node->field_gen_slang_terms = array(0 => array('value' => $slang->name));
+    // }
+    // else {
+      // $node->field_gen_slang_terms[] = array('value' => $slang->name);
+    // }
+//
+    // node_save($node);
+    // if (isset($success[$node->nid])) {
+      // $success[$node->nid][] = $slang->name;
+    // }
+    // else {
+      // $success[$node->nid] = array($slang->name);
+    // }
+  // }
+//
+  // foreach ($success as $nid => $items) {
+    // dpr ("Updated node $nid, added: " . implode(', ', $items));
+  // }
+//
+  // dpr('Errors:');
+  // dpr($errors);
+//
+  // exit;
+
+
+  // Finished:
+
+
+  // Definition and credit into Term
+//  $def_lookup = build_lookup('definitions');
+  // $results = db_query("
+    // SELECT n.title, n.nid, d.field_definition_definition_value, d.field_definition_credit_value
+    // FROM {node} AS n
+    // INNER JOIN {content_type_definition} AS d
+      // ON n.nid = d.nid AND n.vid = d.vid
+    // WHERE n.type = 'definition'
+  // ");
+  // $defs = array();
+  // while ($row = db_fetch_object($results)) {
+    // $defs[] = $row;
+  // }
+  // foreach ($defs as $def) {
+    // $node = node_load($def->nid);
+    // if (count($node->taxonomy) > 1) {
+      // dpr('multiterm: '. $node->nid . ': ' . $node->field_definition_definition[0]['value']);
+      // dpr($node->taxonomy);
+    // }
+    // $description = $node->field_definition_definition[0]['value'];
+    // if (!empty($node->field_definition_credit[0]['value'])) {
+      // $description .= "\n\n<em>" . $node->field_definition_credit[0]['value'] . '</em>';
+    // }
+    // foreach ($node->taxonomy as $tid => $term) {
+      // db_query("UPDATE {term_data} SET description = '%s' WHERE tid=%d", $description, $tid);
+    // }
+  // }
+  // dpr('done.'); exit;
+
+
+//    INNER JOIN {node_revisions} AS r
+//      ON n.nid = r.nid AND n.vid = r.vid
+
+
+
+
+
+
+// DONE:
+//  bh_import_lists(array());
+//  validate_terms_lookup();
+//  exit;
+
+
+  // DONE: Disabiguate definitions and terms
+//  $old2new = build_lookup('terms');
+//  $new2old = array_flip($old2new);
+//  $def_lookup = build_lookup('definitions');
+//  $def_reverse = array_flip($def_lookup);
+//
+//  $results = db_query("
+//    SELECT n.nid, tn.tid
+//    FROM {node} AS n
+//    INNER JOIN {term_node} AS tn
+//      ON n.vid = tn.vid
+//    WHERE n.type = 'definition'
+//  ");
+//
+//  $term_defs = array();
+//  while ($row = db_fetch_object($results)) {
+//    $term_defs[$row->tid][] = $row->nid;
+//  }
+//  $multis = array();
+//  foreach ($term_defs as $tid => $nids) {
+//    if (count($nids) > 1) {
+//      if (isset($new2old[$tid])) {
+//        $multis[$tid] = $nids;
+//        foreach ($nids as $nid) {
+//          if (!isset($def_reverse[$nid])) {
+//            dpr("missing original def id for $nid");
+//          }
+//        }
+//      }
+//      else {
+//        dpr("missing lookup for new term: $tid");
+//      }
+//    }
+//  }
+//
+//  $old_defs = array();
+//  $results = db_query ("SELECT * FROM {data_definitions} WHERE ID IS NOT NULL AND definition IS NOT NULL");
+//  while ($row = db_fetch_object($results)) {
+//    $old_defs[$row->ID] = $row;
+//  }
+////  dpr($old_defs); exit;
+//
+//  // Verified no missing items $multis at this point...  so, carry on.
+//  foreach ($multis as $new_tid => $new_nids) {
+//    // Find original term associated with each $new_nids and see if it has been imported
+//
+//    // DEBUG:
+////    if (6740 != $new_tid) {
+////      continue;
+////    }
+//
+//    foreach ($new_nids as $new_nid) {
+//      $old_tid = $def_reverse[$new_nid];    // Old Definition ID is the same as the Old Term ID
+//      if (!isset($old_defs[$old_tid])) {
+//        dpr("missing old def for $old_tid");
+//      }
+//      else {
+//        if ($old_tid == $new2old[$new_tid]) {
+//          // This one's ok.
+//          continue;
+//        }
+//        else {
+//          // missing term for this definition.  Add new term and associate it with the existing def,
+//          // removing the previous
+//          $node = node_load($new_nid);
+////          dpr('node before:'); dpr($node);
+//          $term = '';
+//          if (isset($old2new[$old_tid]) && ($term = taxonomy_get_term($old2new[$old_tid]))) {
+//            dpr("Adjusting definition to existing term");
+//          }
+//          else {
+//            dpr("adding $old_tid");
+//            $added_tid = bh_import_add_term($old_tid);
+//            dpr("just added $added_tid");
+//            $term = taxonomy_get_term($added_tid);
+//            if (empty($term)) {
+//              dpr("Error trying to add old term ID: $old_tid");
+//              continue;
+//            }
+//          }
+//
+////          dpr('term'); dpr($term);
+//          unset($node->taxonomy[$new_tid]);
+//          $node->taxonomy[$old2new[$old_tid]] = $term;
+//          foreach ($node->field_terms as $index => $val) {
+//            if ($val['value'] == $new_tid) {
+//              $node->field_terms[$index]['value'] = $term->tid;
+//            }
+//          }
+////          dpr('node after'); dpr($node);
+//          node_save($node);
+//        }
+//      }
+//    }
+//  }
+
+  // DONE: Move action (11008) and all children of that term into a new vocab
+//  $root = 10665;
+//  $terms = taxonomy_get_tree(5, $root);
+//  foreach ($terms as $term) {
+//    db_query("UPDATE {term_data} SET vid = 9 WHERE tid = %d", $term->tid);
+//    foreach ($term->parents as $ptid) {
+//      if ($root == $ptid) {
+//        // Remove parent child relationship as this is now a top-level term
+//        db_query("UPDATE {term_hierarchy} SET parent = 0 WHERE tid = %d", $term->tid);
+//        break;
+//      }
+//    }
+//    dpr("updated $term->name");
+//  }
+
+  // DONE: Move clinical class (11008) and all children of that term into a new vocab
+//  $root = 10663;
+//  $terms = taxonomy_get_tree(5, $root);
+//
+//  foreach ($terms as $term) {
+//    db_query("UPDATE {term_data} SET vid = 10 WHERE tid = %d", $term->tid);
+//    foreach ($term->parents as $ptid) {
+//      if ($root == $ptid) {
+//        // Remove parent child relationship as this is now a top-level term
+//        db_query("UPDATE {term_hierarchy} SET parent = 0 WHERE tid = %d", $term->tid);
+//        break;
+//      }
+//    }
+//    dpr("updated $term->name");
+//  }
+
+  // Get a list of all old terms
+  $old_terms = array();   // Format: term_name => old_tid
+  $master = array();      // Format: strtolower(term_name) => old_tid
+  $dups = array();        // Format: strtolower(term_name) => array of duplicate IDs
+
+  $result = db_query('SELECT * FROM {data_term} WHERE term IS NOT NULL');
+  while ($row = db_fetch_object($result)) {
+    // Do some basic error checking: case insensitive match
+    if (isset($master[strtolower($row->term)])) {
+      if (!isset($dups[strtolower($row->term)])) {
+        $dups[strtolower($row->term)] = array();
+      }
+      $dups[strtolower($row->term)][] = $row->ID;
+    }
+    else {
+      $old_terms[$row->term] = $row->ID;          // Case sensitive lookup
+      $master[strtolower($row->term)] = $row->ID; // Case insensitive lookup
+    }
+  }
+
+  // Connect old term to Drupal terms
+  $terms = get_terms();                           // Case sensitive lookup
+  $terms_master = array_change_key_case($terms);  // Case insensitive lookup
+  $resolve_dups = array();                        // Format: duplicate old ID => Drupal_TID
+
+  // Sanity check:
+  if (count($terms) != count($terms_master)) {
+    dpr('Case insensitively check failed.');
+    dpr(array_diff($terms, $master));
+    exit;
+  }
+
+  // Build duplicate resolution array
+  foreach ($dups as $name => $old_tids) {
+    foreach ($old_tids as $old_tid) {
+      $resolve_dups[$old_tid] = $terms_master[$name];
+    }
+  }
+  //  dpr($resolve_dups); exit;
+
+  // DONE: bh_import_terms_generics();
+  // DONE: bh_import_terms_defs($old_terms, $master, $dups);
+  // DONE: bh_import_lists($resolve_dups);
+  exit;
+
+
+
+
+// DONE: Add slang terms to generic drugs
+//  $generic_lookup = _lookup('generic_names');
+//  $oldtid_to_name = get_orig();
+//
+//  $results = db_query("SELECT * FROM {data_drug_common_slang_names} WHERE drug IS NOT NULL");
+//  $slangs = array();
+//  while ($row = db_fetch_object($results)) {
+//    $slangs[$row->drug][] = $row->name;
+//  }
+//  foreach ($slangs as $oldid => $slang) {
+//    $node = node_load($generic_lookup[$oldid]);
+//    // Overwrite existing since we only grabbed the first item in the initial import
+//    $node->field_gen_slang_terms = array();
+//
+//    foreach ($slang as $term) {
+//      $node->field_gen_slang_terms[] = array('value' => $term);
+//    }
+//    dpr("updated $node->title");
+//    node_save($node);
+//  }
+
+//DONE: match credits with terms/people
+//  $results = db_query("SELECT * FROM {data_credits} WHERE Term IS NOT NULL");
+//  $found = $missing = array();
+//  while ($row = db_fetch_object($results)) {
+//    if (empty($row->Credit)) {
+//      continue;
+//    }
+//
+//    $term = $terms[$row->Term];
+//    if (empty($term)) {
+//      // Try case insensitive lookup
+//      $term = $terms_master[strtolower($row->Term)];
+//    }
+//    if (empty($term)) {
+//      $missing[] = $row;
+//    }
+//    else {
+//      $found[] = $row;
+//    }
+//  }
+//
+//  dpr('found '. count($found) . ' terms, but '. count($missing) .' terms are missing');
+//
+//  foreach ($missing as $row) {
+//    // Assume people
+//    $results = db_query("
+//      SELECT n.nid, n.title FROM {node} AS n
+//      WHERE n.title LIKE '%%%s%%'
+//        AND n.type = 'people'",
+//      $row->Term);
+//    $options = array();
+//    while ($option = db_fetch_object($results)) {
+//      $options[] = $option;
+//    }
+//    if (!count($options)) {
+//      dpr("Nothing found for $row->Term");
+//      dpr($row);
+//    }
+//    else if (1 != count($options)) {
+//      dpr("$row->Term is ambiguous: ");
+//      dpr($options);
+//    }
+//    else {
+//      $person = node_load($options[0]->nid);
+//      if (empty($person->field_people_credit[0]['value'])) {
+//        dpr('missing credit at '. $row->Term);
+//      }
+//    }
+//  }
+
+//  dpr($missing);
+//  dpr($found);
+
+// DONE:
+//  $results = db_query("SELECT * FROM {data_book_term_relation} WHERE Book IS NOT NULL AND Term IS NOT NULL");
+//  while ($row = db_fetch_object($results)) {
+//    $book = node_load($book_lookup[$row->Book]);
+//    $term = $terms[$oldtid_to_name[$row->Term]];
+//
+//    // Some nodes aren't loading the general_terms field...  Don't know why
+//    if (!isset($book->field_general_terms)) {
+//      $book->field_general_terms = array(0 => array('value' => NULL));
+//    }
+//
+//    if (empty($book->field_general_terms[0]['value'])) {
+//      $book->field_general_terms[0]['value'] = $term->tid;
+//    }
+//    else {
+//      $book->field_general_terms[] = array('value' => $term->tid);
+//    }
+//    $book->taxonomy[$term->tid] = $term;
+
+
+// DONE:
+//    if (empty($book->field_general_related_content[0]['nid'])) {
+//      $book->field_general_related_content[0]['nid'] = $generic_lookup[$row->Drug];
+//    }
+//    else {
+//      $book->field_general_related_content[] = array('nid' => $generic_lookup[$row->Drug]);
+//    }
+//  node_save($book);
+//  dpr("Updated $book->title");
+//  }
+
+  exit;
+
+
+
+
+
+  // NOTE: old_to_new should be replaced by build_lookup()
+  $old_to_new = array();    // Format: old_tid => new_tid
+  $missing = array();
+  foreach ($master as $old_term => $old_tid) {
+    if (!isset($terms_master[$old_term])) {
+      $missing[] = $old_term;
+    }
+    else {
+      $old_to_new[$old_tid] = $terms_master[$old_term];
+    }
+  }
+
+  if (count($missing)) {
+    dpr('Found '. count($missing) .' missing terms.');
+    dpr($missing); exit;
+    foreach ($missing as $term_name) {
+      $new = array(
+        'name' => $term_name,
+        'vid' => 5,
+      );
+      taxonomy_save_term($new);
+      dpr('Added: '. $new['tid']);
+    }
+  }
+
+
+
+  exit;
+  // Work in chunks of 500
+  $count = 0;
+  $range_low = 4500;
+  $range_high = 4600;
+
+  // Ensure relations are as specified in data file
+  foreach ($old_terms as $term_name => $old_tid) {
+    if ($count < $range_low) {
+      $count++;
+      continue;
+    }
+    if ($count >= $range_high) {
+      break;
+    }
+    // dpr("processing record $count: $term_name");
+    $count++;
+
+    //    TODO: need to add term here...
+
+  }
+  dpr("done: $range_low to $count out of ". count($old_terms));
+  exit;
+}
+
+
+/**
+ * Builds a lookup array from old ID's to post-import Drupal nids
+ * @param $orig_table
+ * @return map
+ */
+function build_lookup($orig_table) {
+  static $master = array();
+
+  $table = "migrate_map_$orig_table";
+  $lookup = array();
+  if (!isset($master[$table])) {
+    // Special cases
+    if ('clinical_classes' == $orig_table) {
+      // some terms have moved vocabs since the original import...
+      $classes = taxonomy_get_tree(10);
+      $terms = build_lookup('terms'); // returns old_id => nid
+      $terms = array_flip($terms);    // Now nid => old_id
+      foreach ($classes as $class) {
+        if (isset($terms[$class->tid])) {
+          $lookup[$terms[$class->tid]] = $class->tid;
+        }
+        else {
+          dpr("missing term in lookup: nid: $class->tid for $class->name");
+        }
+      }
+    }
+    else {
+      $results = db_query('SELECT * FROM {'. $table .'} WHERE sourceid IS NOT NULL AND destid IS NOT NULL');
+      while ($row = db_fetch_object($results)) {
+        $lookup[$row->sourceid] = $row->destid;
+      }
+    }
+    $master[$table] = $lookup;
+  }
+  return $master[$table];
+}
+
+function validate_terms_lookup() {
+  $terms_lookup = build_lookup('terms');
+  foreach ($terms_lookup as $old => $new) {
+    $term = taxonomy_get_term($new);
+    if (empty($term)) {
+      db_query("DELETE FROM {migrate_map_terms} WHERE sourceid = $old");
+      dpr("removed bogus entry for $old => $new in the terms lookup table");
+    }
+  }
+}
+
+
+/**
+ * Adds a new term to Drupal
+ * @param $old_id
+ * @param $debug
+ * @param @recursing -- internal use only
+ * @return new term TID, NULL on error
+ */
+function bh_import_add_term($old_id, $debug = FALSE, $recursing = FALSE) {
+//  dpr("DEBUG: adding term: $old_id");
+  $old_terms = get_orig();
+  if (!isset($old_terms[$old_id])) {
+    dpr("Error: calling add_term on a non-existant term: $old_id");
+    return NULL;
+  }
+  $terms_lookup = build_lookup('terms');
+  if (isset($terms_lookup[$old_id])) {
+    dpr("Error: calling add_term on a term that has already been imported: $old_id");
+    dpr($terms_lookup[$old_id]);
+    return NULL;
+  }
+
+  // Start building the new term
+  $new = array(
+    'vid' => 5,
+    'name' => $old_terms[$old_id],
+  );
+
+  if (!$debug) {
+    taxonomy_save_term($new);
+    $terms_lookup[$old_id] = $new['tid'];
+
+    // Update map table
+    db_query("INSERT INTO {migrate_map_terms} (sourceid, destid) VALUES (%d, %d)", $old_id, $new['tid']);
+  }
+
+  // Collect everything associated with this old_tid
+  $result = db_query("
+    SELECT * FROM {data_term_term_drug_relation}
+      WHERE `Term`=$old_id
+  ");
+
+  $parents = array();
+  $related = array();
+  $syn = array();
+  while ($row = db_fetch_object($result)) {
+    if (!empty($row->Syn)) {
+      if (empty($old_terms[$row->Syn])) {
+        dpr('Bogus Syn entry: '); dpr($row);
+      }
+      else {
+        $syn[] = $old_terms[$row->Syn];
+      }
+    }
+
+    if (!empty($row->Member)) {
+      if (empty($terms_lookup[$row->Member])) {
+        if (empty($old_terms[$row->Member])) {
+          dpr('Bogus parent specified: '); dpr($row);
+        }
+        else {
+          // Has not have been added yet.
+          $tid = bh_import_add_term($row->Member, $debug, TRUE);
+          $terms_lookup[$row->Member] = $tid;
+          $parents[] = $tid;
+        }
+      }
+      else {
+        $parents[] = $terms_lookup[$row->Member];
+      }
+    }
+
+    if (!empty($row->Assoc)) {
+      if (empty($terms_lookup[$row->Assoc])) {
+        if (empty($old_terms[$row->Assoc])) {
+          dpr('Bogus related term specified: '); dpr($row);
+        }
+        else {
+          // Prevent endless recursion which can happen when adding a term with a related term that
+          // has not yet been added.  Related terms are related both ways no matter which
+          // term the relationship starts from, so this link will be established when the other
+          // side of the link is created.
+          if (!$recursing) {
+            $tid = bh_import_add_term($row->Assoc, $debug, TRUE);
+            $terms_lookup[$row->Assoc] = $tid;
+            $related[] = $tid;
+          }
+        }
+      }
+      else {
+        $related[] = $terms_lookup[$row->Assoc];
+      }
+    }
+  }             // while ($row = db_fetch_object($result))
+
+  $parents = array_unique($parents);
+  $related = array_unique($related);
+  $syn = array_unique($syn);
+
+  // Check that we don't have a cyclical parent->child relationship
+  foreach ($parents as $index => $parent) {
+    $children = taxonomy_get_tree(5, $parent);
+    foreach ($children as $child) {
+      if ($child->tid == $new['tid']) {
+        unset($parents[$index]);
+      }
+    }
+
+    // Or aren't a parent of ourself
+    if ($parent == $new['tid']) {
+      unset($parents[$index]);
+    }
+  }
+
+  $update = array(
+    'vid' => 5,
+    'tid' => $new['tid'],
+    'name' => $new['name'],
+    'synonyms' => implode("\n", $syn),
+    'parent' => array_unique($parents),
+    'relations' => array_unique($related),
+  );
+
+  if (!$debug) {
+    taxonomy_save_term($update);
+  }
+  else {
+    dpr("would be saving the following term:");
+    dpr($update);
+  }
+
+  return $new['tid'];
+}
+
+
+function bh_import_lists($resolve_dups) {
+  /*
+   * Reuse "related" terms as list items for terms flagged as lists
+   */
+
+  // Format: old_tid => drupal_tid
+  $terms_lookup = build_lookup('terms');
+
+  // Collect all List terms in the form of Drupal_tid => array of Drupal_tids in this list
+  $lists = array();
+  $results = db_query("
+    SELECT *
+    FROM {data_term_term_drug_relation}
+    WHERE List IS NOT NULL
+      AND Term IS NOT NULL
+  ");
+  while ($row = db_fetch_object($results)) {
+    $ltid = $terms_lookup[$row->List];
+    if(!isset($ltid)) {
+      $ltid = $resolve_dups[$row->List]->tid;
+      if (isset($ltid)) {
+        //        dpr('Using resolved duplicate for List in ID: '. $row->ID);
+      }
+      else {
+        dpr('Error: bogus List ID specified: '); dpr($row);
+      }
+    }
+
+    if (!isset($lists[$ltid])) {
+      $lists[$ltid] = array();
+    }
+
+    if (isset($terms_lookup[$row->Term])) {
+      $lists[$ltid][] = $terms_lookup[$row->Term];
+    }
+    elseif (isset($resolve_dups[$row->Term])) {
+      dpr('Using resolved duplicate for Term in ID: '. $row->ID);
+      $lists[$ltid][] = $resolve_dups[$row->Term]->tid;
+    }
+    else {
+      dpr('Error: bogus Term ID specified: '); dpr($row);
+    }
+  }
+
+  foreach ($lists as $ltid => $related) {
+    $update = (array)taxonomy_get_term($ltid);
+    foreach (taxonomy_get_parents($ltid) as $tid => $term) {
+      $update['parent'][] = $tid;
+    }
+    $update['synonyms'] = implode("\n", taxonomy_get_synonyms($ltid));
+    $update['relations'] = $related;
+    taxonomy_save_term($update);
+  }
+
+
+  $existing = variable_get('behave_lists_tids', NULL);
+  $all_lists = array_unique(array_merge($existing, array_keys($lists)));
+  dpr(count($existing) .' became '. count($all_lists));
+  variable_set('behave_lists_tids', $all_lists);
+
+  dpr('done.'); exit;
+}
+
+
+function bh_import_terms_defs($old_terms, $master, $dups) {
+  $defs_lookup = build_lookup('definitions');
+  $terms_lookup = build_lookup('terms');
+  $orig = get_orig();
+  $defs_terms = array();        // nid => array of term_objects
+
+  // Find list of terms that haven't been imported (these are duplicates by Term->name, but are
+  // not dups as far as the original data goes...)
+  $missing = array();
+  $results = db_query("SELECT * from {data_definitions} WHERE term IS NOT NULL");
+  while ($row = db_fetch_object($results)) {
+    if (empty($row->definition) || empty($row->ID)) {
+      dpr('bogus entry in definitions table: '); dpr($row);
+    }
+    else {
+      if (!isset($orig[$row->ID])) {
+        dpr('bogus term ID given: '); dpr($row);
+      }
+      else {
+        if (!isset($terms_lookup[$row->ID])) {
+          if (!isset($old_terms[$row->term])) {
+            if (!isset($master[strtolower($row->term)])) {
+              dpr('completely missing: '); dpr($row);
+            }
+            else {
+              dpr('Possible upper/lower case issue? ');
+              dpr($row);
+              dpr('Other possible term ID: '. $master[strtolower($row->term)]);
+            }
+          }
+          else {
+            dpr('possible valid duplicate');
+          }
+        }
+        else {
+          // Add Term to definitions taxonomy
+          $term = taxonomy_get_term($terms_lookup[$row->ID]);
+          $node = node_load($defs_lookup[$row->ID]);
+
+          // CCK field
+          $node->field_terms = array(0 => array('value' => $term->tid));
+
+          // Taxonomy system
+          $keep = array();
+          foreach ($node->taxonomy as $tid => $term) {
+            if (5 != $term->vid) {
+              $keep[$tid] = $term;
+            }
+          }
+          $keep[$term->tid] = $term;
+          $node->taxonomy = $keep;
+          node_save($node);
+          dpr('updated: '. $node->nid .', '. $node->title);
+        }
+      }
+    }
+  }
+
+  dpr('done'); exit;
+}
+
+
+function bh_import_terms_generics() {
+  $generics = build_lookup('generic_names');
+
+  // Build an array of generic_new_id => array(tid1, tid2)  (all in Drupal IDs, not old IDs)
+  $gen_terms = array();
+  $results = db_query("SELECT * FROM {data_term_term_drug_relation} WHERE Gnrc IS NOT NULL AND Term IS NOT NULL");
+  $terms_lookup = build_lookup('terms');
+
+  while ($row = db_fetch_object($results)) {
+    $gnid = $generics[$row->Gnrc];
+    if (empty($gnid)) {
+      dpr('Error: no import record for generic_name.ID '. $row->Gnrc);
+      exit;
+    }
+    if (empty($row->Term)) {
+      dpr('bogus entry: '); dpr($row); exit;
+    }
+
+    if (!isset($gen_terms[$gnid])) {
+      $gen_terms[$gnid] = array();
+    }
+    $tid = $terms_lookup[$row->Term];
+    if (empty($tid)) {
+      dpr('Error: no Term imported for term.ID '. $row->Term);
+      exit;
+    }
+    $gen_terms[$gnid][] = $tid;
+  }
+
+  // Go through each Generic node type in Drupal and overwrite existing taxonomy for vocab 5 (Terms)
+  $results = db_query("SELECT * FROM {node} WHERE type='generic'");
+  while ($row = db_fetch_object($results)) {
+    dpr('Working on nid: '. $row->nid);
+    $node = node_load($row->nid);
+    $node->field_general_terms = array();
+    $keep = array();
+    foreach ($node->taxonomy as $tid => $term) {
+      if (5 != $term->tid) {
+        $keep[$tid] = $term;
+      }
+    }
+
+    // Now we've got all non-vocab 5 terms in $keep and we've zapped previous entries in field_general_terms
+    // Add all the terms associated with this entry back into the node
+    $test = FALSE;
+    foreach ($gen_terms[$node->nid] as $tid) {
+      $node->field_general_terms[] = array('value' => $tid);
+      $term = taxonomy_get_term($tid);
+      if (empty($term)) {
+        dpr('bogus tid specified: '. $tid);
+        exit;
+      }
+      $keep[$tid] = $term;
+      $test = TRUE;
+    }
+
+    // Ensure proper format if we didn't add anything
+    if (empty($node->field_general_terms)) {
+      $node->field_general_terms = array(0 => array('value' => ''));
+    }
+
+    // Replace taxonomy terms with our new list
+    $node->taxonomy = $keep;
+
+    node_save($node);
+    if ($test) {
+      dpr('updated: '. $node->nid);
+    }
+  }
+  exit;
+}
+
+
+
+/**
+ * Performs the same function as array_search except that it is case insensitive
+ * @param mixed $needle
+ * @param array $haystack
+
+ * @return mixed
+ */
+function array_nsearch($needle, array $haystack) {
+  $it = new IteratorIterator(new ArrayIterator($haystack));
+  foreach ($it as $key => $val) {
+    if(strcasecmp($val, $needle) === 0) {
+      return $key;
+    }
+  }
+  return FALSE;
+}
+
+
+function bh_find_alias_dups() {
+  $results = db_query("
+    SELECT * FROM {url_alias}
+    WHERE dst IS NOT NULL
+  ");
+  $dups = array();
+  $aliases = array();
+  while ($row = db_fetch_object($results)) {
+    $aliases[$row->dst] = $row->src;
+  }
+
+  foreach($aliases as $dst => $src) {
+    $root = preg_replace('/-\d+$/', '', $dst);
+    if ($root != $dst) {
+      if (!isset($aliases[$root])) {
+        // Probably a name with a number at the end, not a real dup
+        continue;
+      }
+      if (!isset($dups[$root])) {
+        // Add original alias
+        $dups[$root][] = array($root => $aliases[$root]);
+      }
+      $dups[$root][] = array($dst => $src);
+    }
+  }
+  dpr(count($dups) . ' possible dups.');
+  dpr($dups); exit;
+}
+
+
+?>
