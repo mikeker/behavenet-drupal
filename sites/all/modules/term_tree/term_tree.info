@@ -1,0 +1,11 @@
+; $Id: term_tree.info,v 1.1.2.1 2009/08/10 17:21:12 nonsie Exp $
+name = Term Tree
+description = Provides a CCK widget for displaying taxonomy terms in a collapsible tree
+core = "6.x"
+dependencies[] = taxonomy
+; Information added by drupal.org packaging script on 2010-07-11
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "term_tree"
+datestamp = "1278835937"
+

@@ -1,0 +1,4 @@
+// $Id: CHANGELOG.txt,v 1.1.2.1 2009/04/24 01:15:11 nonsie Exp $
+
+23-APR-2009
+-- Allow other modules to disable tree branches by implementing hook_term_tree_params().

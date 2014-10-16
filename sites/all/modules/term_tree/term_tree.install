@@ -1,0 +1,7 @@
+<?php
+
+// $Id: term_tree.install,v 1.1.2.1 2009/08/10 17:21:12 nonsie Exp $
+/**
+ * @file
+ * Tool for displaying domain specific terms
+ */

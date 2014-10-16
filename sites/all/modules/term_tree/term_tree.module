@@ -1,0 +1,616 @@
+<?php
+// $Id: term_tree.module,v 1.1.2.4 2009/09/29 21:05:38 nonsie Exp $
+
+/**
+ *
+ * @file
+ * Term Tree
+ * Tool for displaying terms in a collapsible tree
+ */
+
+/**
+ * Implementation of hook_perm().
+ */
+function term_tree_perm() {
+  return array('use term tree');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function term_tree_menu() {
+  $items['admin/content/term_tree/childform'] = array(
+    'page callback' => 'term_tree_view_build_child_form',
+    'access arguments' => array('use term tree'),
+    'type' => MENU_CALLBACK,
+    'description' => 'Callback for individual tree branches',
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function term_tree_theme() {
+  return array(
+    'term_tree_form' => array(
+      'arguments' => array('form'),
+    ),
+    'term_tree_view' => array(
+      'arguments' => array('element'),
+    ),
+    'term_tree_view_elements' => array(
+      'arguments' => array('element'),
+    ),
+    'term_tree_view_radio' => array(
+      'arguments' => array('element'),
+    ),
+    'term_tree_view_checkbox' => array(
+      'arguments' => array('element'),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_help().
+ */
+function term_tree_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#term_tree':
+      $output = t('Term Tree provides a way to display taxonomy terms in a collapsilbe tree');
+      return $output;
+  }
+}
+
+/******************************************
+ * TAXONOMY TERM TREE FORM ELEMENT DEFINITION
+ *
+ * how to use:
+ * $form['name'] = array(
+ *   '#type' => 'term_tree_view',
+ *   '#vid' => $vid,
+ * );
+ *
+ * additional parameter:
+ * - #default_value: an array of term ids, which get
+ * selected by default
+ * - #expand_children: if TRUE, children of selected
+ * term(s) are expanded by default
+ * - #multiple: if TRUE the tree will contain checkboxes,
+ * otherwise radio buttons
+ * - #tree_is_required: use #tree_is_required instead of
+ * #required if you are using the tree within an other
+ * element and don't want that both are internally required,
+ * because it might cause that error messages are shown
+ * twice (see content_taxonomy_tree)
+ *
+ * how to retrieve selected values:
+ * - selected terms ids are available in validate / submit
+ * function in $form_values['name']['selected_terms'];
+ */
+
+/**
+ * Implementation of hook_elements().
+ */
+function term_tree_elements() {
+  $type['term_tree_view'] = array(
+    '#input' => TRUE,
+    '#process' => array('term_tree_view_process_elements'),
+    '#tree' => TRUE,
+  );
+  return $type;
+}
+
+/**
+ * Processes the tree form element
+ *
+ * @param $element
+ *   INdividual element array
+ * @return
+ *   the tree element as an array
+ */
+function term_tree_view_process_elements($element) {
+  global $_term_tree_existing_ids;
+  $_term_tree_existing_ids = is_array($_term_tree_existing_ids) ? $_term_tree_existing_ids : array();
+  $module_path = drupal_get_path('module', 'term_tree') .'/';
+  // ID of field
+  $id = form_clean_id(implode('-', $element['#parents']));
+  $vid = $element['#vid'];
+
+  if (!in_array($id, $_term_tree_existing_ids)) {
+    $_term_tree_existing_ids[$id] = $id;
+    drupal_add_css($module_path .'term_tree.css');
+    drupal_add_js($module_path .'term_tree.js', 'module');
+    $settings['childForm'] = array(
+      'url' => url('admin/content/term_tree/childform'),
+      'modulePath' => $module_path
+    );
+    $settings['tree'] = array(
+      'id' => $id,
+      'vid' => $vid
+    );
+    drupal_add_js($settings, 'setting');
+  }
+
+  // Object of tree branches to load (subtree)
+  $tree = _term_tree_view_get_item($element['#vid'], $element['#parent']);
+  $element['#default_value'] = is_array($element['#default_value']) ? $element['#default_value'] : array();
+  $element['#multiple'] = isset($element['#multiple']) ? $element['#multiple'] : FALSE;
+  $element['#expand_children'] = isset($element['#expand_children']) ? $element['#expand_children'] : FALSE;
+  $element['#tree'] = TRUE;
+  $element['#id'] = $id;
+  $element['#element_validate'] = array('term_tree_view_validate');
+  $element['#required'] = isset($element['#tree_is_required']) ? $element['#tree_is_required'] : FALSE;
+
+  $terms_to_expand = array();
+  if (count($element['#default_value'])) {
+    $terms_to_expand = term_tree_view_get_terms_to_expand($tree, $element['#default_value'], $element['#multiple'], $element['#expand_children']);
+  }
+  // Build the subtree array
+  $tree_before = $element['#elements'];
+  term_tree_view_build_form($tree, $element['#elements'], $element, $element['#parents'], $element['#default_value'], $element['#multiple'], $terms_to_expand);
+  return $element;
+}
+
+/**
+ * Loads tree with terms (depending on various settings)
+ *
+ * @param $vid
+ *   Vocabulary id (int)
+ * @param $parent
+ *   ID of the parent term
+ * @return
+ *   Array with term elements
+ */
+function _term_tree_view_get_item($vid, $parent = 0, $depth = 1) {
+  $tree = array();
+  $tree = taxonomy_get_tree($vid, $parent, -1, $depth);
+  if (module_exists('i18ntaxonomy')) {
+    $tree = i18ntaxonomy_localize_terms($tree);
+  }
+  return $tree;
+}
+
+/**
+ * Mark parent terms to expand.
+ *
+ * Mark parent terms to expand if a child terms is selected by default
+ * @param $tree
+ *   Tree as an array
+ * @param $default_values
+ *   Array of default selected values
+ * @param $multiple
+ *   Boolean indicating if there's multiple defaults
+ *   (radios vs checkboxes)
+ * @param $expand_default
+ *   Boolean indicating if the default value should be
+ *   displayed expanded eg listing children
+ */
+function term_tree_view_get_terms_to_expand($tree, $default_values, $multiple, $expand_default = FALSE) {
+  $options = array();
+  // Find parents of default values
+  foreach ($default_values as $value) {
+    $parents = taxonomy_get_parents_all($value);
+    if ($parents) {
+      foreach ($parents as $parent) {
+        $options[$parent->tid] = $parent->tid;
+      }
+      // taxonomy_get_parents_all returns also the term id used for lookup
+      // We need to remove the term if we do not show defaults expanded
+      if (!$expand_default) {
+        unset($options[$value]);
+      }
+    }
+  }
+  $terms = array();
+  foreach ($tree as $term) {
+    if (in_array($term->tid, $options) || in_array($term->tid, $terms)) {
+      $terms[$term->tid] = $term->tid;
+    }
+  }
+  return $terms;
+}
+
+/**
+ * Builds nested form array
+ *
+ * Recursive function for building nested form array,
+ * nested form arrays are allways appended to parent-form['children']
+ *
+ * @param $parents
+ *   Parents of $tree
+ * @param $default
+ *   Default value(s) for the field
+ * @param $multiple
+ *   One or more options (radio/checkbox)
+ * @param $terms_to_expand
+ *   Terms in the tree to expand by default
+ * @param $index
+ *   Current index in tree, start with 0
+ * @param $tree
+ *   Tree of terms
+ * @return
+ *   Form array
+ */
+function term_tree_view_build_form($tree, &$form, $root_form, $parents = array(), $default_value = array(), $multiple = TRUE, $terms_to_expand = array()) {
+  $tree_depth = count($tree);
+  $index = 0;
+  // One term at a time
+  foreach ($tree as $key => $term) {
+    $index++;
+    $attributes = array();
+    $build_subtrees = FALSE;
+    $value = '';
+    $this_parents = $parents;
+    $this_parents[] = $term->tid;
+
+    $value = in_array($term->tid, array_values($default_value)) ? 1 : 0;
+    $value_parents = in_array($term->tid, array_values($terms_to_expand)) ? 1 : 0;
+
+    if ($value_parents && !$multiple) {
+      $build_subtrees = TRUE;
+    }
+
+    $form[$term->tid]['checkbox'] = array(
+      '#type' => ($multiple) ? 'checkbox' : 'radio',
+      '#title' => $term->name,
+      '#value' => $value,
+      '#return_value' => $term->tid,
+      '#attributes' => array('class' => 'term-id'),
+      '#theme' => ($multiple) ? 'term_tree_view_checkbox' : 'term_tree_view_radio',
+    );
+
+    if ($multiple) {
+      $form[$term->tid]['checkbox']['#options'] = array($term->tid);
+    }
+    // adds #id and #name to all form elements
+    _term_tree_view_element_set_params($this_parents, $form[$term->tid]);
+
+    if ($build_subtrees) {
+        $form[$term->tid]['#attributes']['class'] .= _term_tree_view_term_get_class($term->tid, $tree, (in_array($term->tid, array_keys($terms_to_expand))));
+        $tree = taxonomy_get_children($term->tid);
+        // Get a new set of terms to expand
+        $terms_to_expand = array();
+        if (count($default_value)) {
+          $terms_to_expand = term_tree_view_get_terms_to_expand($tree, $default_value, $multiple, FALSE);
+        }
+        term_tree_view_build_form($tree, $form[$term->tid]['children'], $root_form, array_merge($this_parents, array('children')), $default_value, $multiple, $terms_to_expand);
+    }
+    else {
+      if (_term_tree_view_term_has_children($term->tid)) {
+        $form[$term->tid]['#attributes']['class'] .= 'has-children ';
+        if ($index == $tree_depth) {
+          $form[$term->tid]['#attributes']['class'] .= 'lastExpandable ';
+        }
+        else {
+          $form[$term->tid]['#attributes']['class'] .= 'expandable ';
+        }
+      }
+      else {
+        if ($index == $tree_depth) {
+          $form[$term->tid]['#attributes']['class'] .= 'last ';
+        }
+      }
+    }
+  }
+}
+
+/**
+ * adds #id and #name to all form elements
+ *
+ * @param $parents
+ *   Parent array
+ * @param $form
+ *   Form array
+ */
+function _term_tree_view_element_set_params($parents, &$form) {
+  $term_id = array_slice($parents, -1);
+  $term_id = $term_id[0];
+  // Lookup modules that allow to set params to form elements
+  $modules = array();
+  foreach (module_implements('term_tree_params') as $module) {
+    array_push($modules, $module);
+  }
+  foreach (element_children($form) as $field_name) {
+    $field_parents = array_merge($parents, array($field_name));
+    $form[$field_name]['#tree'] = TRUE;
+    $form[$field_name]['#post'] = array();
+    $form[$field_name]['#parents'] = $field_parents; // only children of this will get loaded
+    $form[$field_name]['#id'] = form_clean_id('edit-'. implode('-', $field_parents));
+    $form[$field_name]['#name'] = array_shift($field_parents) .'['. implode('][', $field_parents) .']';
+    $form[$field_name]['#title'] = $form[$field_name]['#title'];
+    foreach ($modules as $module) {
+      $form[$field_name] = module_invoke($module, 'term_tree_params', $form[$field_name]);
+    }
+  }
+}
+
+/**
+ * calculates class type (expandable, lastExpandable) for current element
+ *
+ * @param $term_id
+ *   Current term tree array
+ * @param $tree
+ *   Array with terms
+ * @param $expand
+ *   Boolean indicating if the tree should be expanded
+ * @return
+ *   String - expandable or lastExpandable
+ */
+function _term_tree_view_term_get_class($term_id, $tree, $expand) {
+  $class = '';
+  // Do we need to expand this tree?
+  if ($expand) {
+    // Find term children
+    $child_terms = _term_tree_view_term_has_children($term_id);
+    if ($child_terms) {
+      // Last expandable in the tree?
+      $branch_count = count($tree);
+      $counter = 0;
+      foreach ($tree as $branch) {
+        $counter++;
+        if ($branch->tid == $term_id) {
+          $term_branch = $counter;
+          break;
+        }
+      }
+      // Assign a different style if it's the last term in the tree
+      if ($term_branch == $branch_count) {
+        $class = ($expand) ? 'lastCollapsable ' : 'lastExpandable ';
+      }
+      else {
+        $class = ($expand) ? 'collapsable ' : 'expandable ';;
+      }
+    }
+  }
+  return $class;
+}
+
+/**
+ * Check if a term has children
+ *
+ * @param $tid
+ *   String - term ID
+ * @return
+ *   TRUE if term has children, FALSE otherwise
+ */
+function _term_tree_view_term_has_children($tid) {
+  $count = db_result(db_query("SELECT COUNT(tid) FROM {term_hierarchy} WHERE parent = %d", $tid));
+  if ($count == 0) {
+    return FALSE;
+  }
+  return TRUE;
+}
+
+/**
+ * callback for generating and rendering nested child forms (AHAH)
+ *
+ * @param $tree_id
+ *   Tree ID as string
+ * @param $vid
+ *   Vocabulary id (int)
+ * @param $parent
+ *   Term id of parent, that is expanded and of which
+ *   children have to be loaded
+ */
+function term_tree_view_build_child_form($tree_id, $vid, $parent) {
+  $params = $_GET;
+  $GLOBALS['devel_shutdown'] = FALSE;
+
+  $form_state = array('submitted' => FALSE);
+  $child_form = array(
+    '#type' => 'term_tree_view',
+    '#vid' => $vid,
+    '#parent' => $parent ? $parent : 0,
+  );
+
+  _term_tree_view_sub_forms_set_parents($tree_id, $parent, $child_form);
+  $child_form = form_builder($params['form_id'], $child_form, $form_state);
+
+  $form_output = drupal_render($child_form);
+  print $form_output;
+  exit();
+}
+
+/**
+ * Set parents depending on form_id and hierarchical parents
+ *
+ * @param $tree_id
+ *   Tree ID as string
+ * @param $parent
+ *   Parent term id
+ * @param $form
+ *   Form array
+ */
+function _term_tree_view_sub_forms_set_parents($tree_id, $parent, &$form) {
+  $breakpoint = strrchr($tree_id, '-');
+  $id = drupal_substr($tree_id, 0, -(drupal_strlen($breakpoint)));
+  $field_name = count($tree_ids);
+
+  $form['#parents'][] = str_replace('-', '_', $id);
+  $form['#parents'][] = str_replace('-', '', $breakpoint);
+
+  if ($parent) {
+    $all_parents = taxonomy_get_parents_all($parent);
+    for ($i=count($all_parents)-1; $i >= 0; $i--) {
+      $form['#parents'][] = $all_parents[$i]->tid;
+      $form['#parents'][] = 'children';
+    }
+  }
+}
+
+/**
+ * Validate submitted form values
+ *
+ * Vhecks if selected terms really belong to initial voc,
+ * if not sets form_set_error. If all is valid, selected values get
+ * added to 'selected_terms' for easy use in submit.
+ */
+function term_tree_view_validate($form, &$form_state) {
+  $selected = array();
+
+  if ($form['#multiple'] || is_array($form['#value'])) {
+    $selected = _term_tree_view_get_selected_terms($form['#value']);
+  }
+  elseif (is_numeric($form['#value'])) {
+    $selected[$form['#value']] = $form['#value'];
+  }
+
+  $vid = $form['#vid'];
+  foreach ($selected as $tid) {
+    if (!_term_tree_view_term_valid($tid, $vid)) {
+      form_set_error('', t('An illegal choice has been detected. Please contact the site administrator.'));
+    }
+  }
+  form_set_value($form, array('selected_terms' => $selected), $form_state);
+}
+
+/**
+ * Check if term id belongs to vocabulary
+ *
+ * @param $tid
+ *   term id
+ * @param $vid
+ *   voc id
+ * @return
+ *   TRUE if term belongs to voc, FALSE otherwise
+ */
+function _term_tree_view_term_valid($tid, $vid) {
+  $term = taxonomy_get_term($tid);
+  if ($term->vid != $vid) return FALSE;
+  return TRUE;
+}
+
+/**
+ * Return term ids of selected checkboxes
+ *
+ * Goes through nested form array recursivly
+ * and finds term ids of selected elements
+ *
+ * @param $form_values
+ *   Array of form values
+ * @return
+ *   An array with ids of selected terms
+ */
+function _term_tree_view_get_selected_terms($form_values) {
+  $tids = array();
+  if (is_array($form_values)) {
+    foreach ($form_values as $tid => $form_value) {
+      if ($form_value['checkbox'] && $tid && ($tid == $form_value['checkbox'])) {
+        $tids[$tid] = $tid;
+      }
+      if (is_array($form_value['children'])) {
+        $tids += _term_tree_view_get_selected_terms($form_value['children']);
+      }
+    }
+  }
+  return $tids;
+}
+
+
+/**
+ * Theme root element
+ *
+ * @param $element
+ *   Element array
+ * @return
+ *   html output
+ */
+function theme_term_tree_view(&$element) {
+  $tree = theme('term_tree_view_elements', $element['#elements']);
+  if (!$element['#parent']) {
+    $output = '<div id="'. $element['#id'] .'">';
+    $output .= $tree;
+    $output .= '</div>';
+    return theme('form_element', $element, $output);
+  }
+  return $tree;
+}
+
+/**
+ * Recursive theme function for term elements
+ *
+ * @param $element
+ *   Element array
+ * @return
+ *   html unordered list
+ */
+function theme_term_tree_view_elements($element) {
+  $output .= "<ul>";
+
+  if (is_array($element)) {
+    foreach (element_children($element) as $tid) {
+      if (is_numeric($tid)) {
+        $output .= '<li'. drupal_attributes($element[$tid]['#attributes']) .'>';
+        $output .='<div class="term-line">';
+        $output .='<div class="term-item">';
+        $output .= drupal_render($element[$tid]['checkbox']);
+        $output .= '</div>';
+
+        if (is_array($element[$tid]['tid'])) {
+          $output .= drupal_render($element[$tid]['tid']);
+        }
+
+        $output .= '</div>';
+
+        if (is_array($element[$tid]['children'])) {
+          $output .= theme('term_tree_view_elements', $element[$tid]['children']);
+        }
+
+        if (strstr($element[$tid]['#attributes']['class'], 'has-children')) {
+          $output .= "<ul><li></li></ul>";
+        }
+
+        $output .='</li>';
+      }
+    }
+  }
+
+  $output .= "</ul>";
+  return $output;
+}
+
+/**
+ * Theme a radio input field
+ */
+function theme_term_tree_view_radio($element) {
+  _form_set_class($element, array('form-radio'));
+  $output = '<input ';
+  $output .= 'type="radio" ';
+  $output .= 'name="'. $element['#parents'][0] ."[". $element['#parents'][1] ."]" .'" ';
+  $output .= 'id="'. $element['#id'] .'" ' ;
+  $output .= 'value="'. $element['#return_value'] .'" ';
+  $output .= $element['#value'] ? ' checked="checked" ' : ' ';
+  $output .= drupal_attributes($element['#attributes']) .' />';
+
+  $title = $element['#title'];
+
+  if (!is_null($title)) {
+    $output = '<label class="option">'. $output .' '. $title .'</label>';
+  }
+  unset($element['#title']);
+  return theme('form_element', $element, $output);
+}
+
+/**
+ * Theme a checkbox
+ */
+function theme_term_tree_view_checkbox($element) {
+  _form_set_class($element, array('form-checkbox'));
+  $checkbox = '<input ';
+  $checkbox .= 'type="checkbox" ';
+  $checkbox .= 'name="'. $element['#name'] .'" ';
+  $checkbox .= 'id="'. $element['#id'] .'" ' ;
+  $checkbox .= 'value="'. $element['#return_value'] .'" ';
+  $checkbox .= $element['#value'] ? ' checked="checked" ' : ' ';
+  $checkbox .= drupal_attributes($element['#attributes']) .' />';
+
+  $title = $element['#title'];
+
+  if (!is_null($title)) {
+    $checkbox = '<label class="option">'. $checkbox .' '. $title .'</label>';
+  }
+
+  unset($element['#title']);
+  return theme('form_element', $element, $checkbox);
+}

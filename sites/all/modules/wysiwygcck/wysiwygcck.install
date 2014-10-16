@@ -1,0 +1,65 @@
+<?php
+
+/**
+ * Implementation of hook_install().
+ */
+function wysiwygcck_install() {
+  // We need our hook_form_alter() to run after wysiwyg.module's hook_form_alter().
+  db_query("UPDATE {system} SET weight = %d WHERE name = '%s' AND type = '%s'", 1, 'wysiwygcck', 'module');
+}
+
+function wysiwygcck_requirements($phase) {
+  $requirements = array();
+  $t = get_t();
+
+  // NOTE: We can assume that some version of jquery_update is installed
+  // since it's listed as a dependency of this module.  We just need to check
+  // that the version number of jquery.form.js is >= 2.16
+  $requirements['wysiwygcck']['title'] = $t('jQuery Form version');
+  $version = explode('.', _wysiwygcck_get_js_form_version());
+  if (count($version) >= 2 && $version[0] >= 2 && $version[1] >= 16) {
+    // Everything looks good; display the current jQuery UI version.
+    $requirements['wysiwygcck']['value'] = implode('.', $version);
+    $requirements['wysiwygcck']['severity'] = REQUIREMENT_OK;
+  }
+  else {
+    // Required library wasn't found. Abort installation.
+    $requirements['wysiwygcck']['value'] = implode('.', $version);
+    $requirements['wysiwygcck']['description'] = $t(
+      'The Wysiwyg CCK Integration modele requires a version of jquery.form.js
+      greater or equal 2.16. This is best done by installing !jq_up 2.x or greater.',
+      array(
+        '!jq_up' => l('jQuery Update', 'http://drupal.org/project/jquery_update'),
+      )
+    );
+    $requirements['wysiwygcck']['severity'] = REQUIREMENT_ERROR;
+  }
+
+  return $requirements;
+
+}
+
+/**
+ * Function to grab the version number from jquery_update's copy of jquery.form.js
+ * @see jquery_update_get_version
+ */
+function _wysiwygcck_get_js_form_version() {
+  $version = 0;
+  $pattern = '#\* version: ([0-9\.a-z]+) #';
+
+  // Load jquery_update_jquery_path() code as needed.
+  if (!is_callable('jquery_update_jquery_path')) {
+    include_once drupal_get_path('module', 'jquery_update') . '/jquery_update.module';
+  }
+
+  // jquery.form.js is in the same directory as jquery.js
+  $path = dirname(jquery_update_jquery_path());
+
+  // Return the version.
+  $jquery_form = file_get_contents("$path/jquery.form.js");
+  if (preg_match($pattern, $jquery_form, $matches)) {
+    $version = $matches[1];
+  }
+
+  return $version;
+}

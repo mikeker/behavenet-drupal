@@ -1,0 +1,17 @@
+
+.treeview li {
+  padding: 0 15px 0 0px;
+}
+
+.hitArea {
+  float: right;
+  margin-right: -15px;
+}
+
+.treeview li {background: url(icons/tv-item-rtl.gif) 0 0 no-repeat; background-position:right;}
+
+.treeview .collapsable { background-image: url(icons/tv-collapsable-rtl.gif); /* LTR */ }
+.treeview .expandable { background-image: url(icons/tv-expandable-rtl.gif); /* LTR */}
+.treeview .last { background-image: url(icons/tv-item-last-rtl.gif); /* LTR */ }
+.treeview .lastCollapsable { background-image: url(icons/tv-collapsable-last-rtl.gif); /* LTR */}
+.treeview .lastExpandable { background-image: url(icons/tv-expandable-last-rtl.gif); /* LTR */}

@@ -1,0 +1,7 @@
+name = Wysiwyg CCK Integration
+description = Fixes some integration issues when using a wysiwyg enabled multi-valued CCK text field.
+core = 6.x
+package = User interface
+dependencies[] = wysiwyg
+dependencies[] = jquery_update
+dependencies[] = jquery_aop

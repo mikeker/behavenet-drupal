@@ -1,0 +1,65 @@
+
+#term-tree-tree-outer-div {
+  height: 550px;
+  overflow: auto;
+}
+
+#term-tree-tree-outer-div fieldset {
+  margin: 0;
+  padding: 5px;
+}
+
+.treeview, .treeview ul {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.treeview .form-item {
+  margin: 0;
+  padding: 0;
+  display: inline;
+}
+
+.treeview li {
+  margin: 0;
+  padding: 0 0 0 15px; /* LTR */
+}
+
+.hitArea {
+  float: left; /* LTR */
+  height: 15px;
+  width: 15px;
+  margin-left: -15px; /* LTR */
+  cursor: pointer;
+  _background: #fff;
+  _filter: alpha(opacity=0);
+  _display: inline;
+}
+
+.treeview li { background: url(icons/tv-item.gif) 0 0 no-repeat; /* LTR */
+}
+.treeview .collapsable { background-image: url(icons/tv-collapsable.gif); /* LTR */ }
+.treeview .expandable { background-image: url(icons/tv-expandable.gif); /* LTR */}
+.treeview .last { background-image: url(icons/tv-item-last.gif); /* LTR */ }
+.treeview .lastCollapsable { background-image: url(icons/tv-collapsable-last.gif); /* LTR */}
+.treeview .lastExpandable { background-image: url(icons/tv-expandable-last.gif); /* LTR */}
+
+.treeview .term-line {
+  display: inline;
+}
+
+.treeview .term-item {
+  display: inline;
+}
+
+.treeview .clear {
+  clear: both;
+}
+
+.treeview .item-disabled {
+color: #999;
+}
+.treeview .term-current {
+font-weight: bolder;
+}

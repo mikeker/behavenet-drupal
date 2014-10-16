@@ -1,0 +1,16 @@
+;$Id: content_taxonomy_term_tree.info,v 1.1.2.2 2009/08/10 17:21:12 nonsie Exp $
+name = Content Taxonomy Term Tree
+description = Defines a term tree widget for Content Taxonomy
+dependencies[] = content
+dependencies[] = content_taxonomy
+dependencies[] = taxonomy
+dependencies[] = term_tree
+package = CCK
+core = 6.x
+
+; Information added by drupal.org packaging script on 2010-07-11
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "term_tree"
+datestamp = "1278835937"
+
