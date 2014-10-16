@@ -7,9 +7,9 @@ hidden = TRUE
 ; synchronization with HEAD.
 php = 5
 
-; Information added by  packaging script on 2013-11-10
-version = "6.x-2.6"
+; Information added by Drupal.org packaging script on 2014-09-15
+version = "6.x-2.11"
 core = "6.x"
 project = "mollom"
-datestamp = "1384108705"
+datestamp = "1410796456"
 
