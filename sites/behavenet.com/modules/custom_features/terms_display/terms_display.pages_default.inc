@@ -485,6 +485,7 @@ print \'</ul>\';
 <option value="/hobophobia">bums</option>
 <option value="/scelerophobia">burglars</option>
 <option value="/taphephobia">buried alive, being</option>
+<option value="/koumpounophobia">buttons</option>
 <option value="/cancerophobia">cancer</option>
 <option value="/felinophobia">cats</option>
 <option value="/bovinophobia">cattle</option>
@@ -601,6 +602,7 @@ print \'</ul>\';
 <option value="/phagophobia">eaten, being</option>
 <option value="/cibophobia">eating</option>
 <option value="/phagophobia">eating</option>
+<option value="/ebolaphobia">ebola</option>
 <option value="/octophobia">eight, the number</option>
 <option value="/electrophobia">electricity</option>
 <option value="/cenophobia">empty rooms</option>
@@ -742,6 +744,7 @@ print \'</ul>\';
 <option value="/catapedaphobia">jumping from high or low places</option>
 <option value="/dikephobia">justice</option>
 <option value="/albuminurophobia">kidney disease</option>
+<option value="/foniasophobia">killers</option>
 <option value="/philemaphobia">kissing</option>
 <option value="/genuphobia">knees</option>
 <option value="/epistemophobia">knowledge</option>
@@ -792,6 +795,7 @@ print \'</ul>\';
 <option value="/psychophobia">mind</option>
 <option value="/catoptrophobia">mirrors</option>
 <option value="/eisoptrophobia">mirrors</option>
+<option value="/spectrophobia">mirrors</option>
 <option value="/ballistophobia">missiles</option>
 <option value="/nomophobia">mobile phone contact, loss of</option>
 <option value="/demophobia">mobs</option>
@@ -918,6 +922,7 @@ print \'</ul>\';
 <option value="/doxophobia">receiving praise</option>
 <option value="/proctophobia">rectum</option>
 <option value="/ereuthrophobia">red</option>
+<option value="/eisotropophobia">reflection, one\'s own</option>
 <option value="/syngenesophobia">relatives</option>
 <option value="/theophobia">religion</option>
 <option value="/teleophobia">religious ceremonies</option>
@@ -1066,6 +1071,7 @@ print \'</ul>\';
 <option value="/placophobia">tombstones</option>
 <option value="/lilapsophobia">tornadoes</option>
 <option value="/haphephobia">touched, being </option>
+<option value="/othoniafíphobia">touchscreens</option>
 <option value="/siderodromophobia">train travel</option>
 <option value="/siderodromophobia">trains</option>
 <option value="/hodophobia">travel</option>
@@ -1170,6 +1176,7 @@ print \'</ul>\';
       'admin_title' => 'Manias by Madness',
       'title' => 'Manias by Madness',
       'body' => '<select class="jump-menu"><option selected>- Choose -</option>
+  <option value="/syllogomania">accumulation of possessions; possessions, accumulation of</option>
   <option value="/mania-a-potu">alcohol intoxication, violent behavior with</option>
   <option value="/callomania">beauty, delusional conviction of one\'s own</option>
   <option value="/thanatomania">death magic has resulted in one\'s illness, delusional belief that </option>
