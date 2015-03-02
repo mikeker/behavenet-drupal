@@ -794,8 +794,8 @@ print \'</ul>\';
 <option value="/bacillophobia">microbes</option>
 <option value="/psychophobia">mind</option>
 <option value="/catoptrophobia">mirrors</option>
-<option value="/eisoptrophobia">mirrors</option>
-<option value="/spectrophobia">mirrors</option>
+<option value="/spectrophobia">mirrors, broken</option>
+<option value="/eisoptrophobia">mirrors, seeing oneself in</option>
 <option value="/ballistophobia">missiles</option>
 <option value="/nomophobia">mobile phone contact, loss of</option>
 <option value="/demophobia">mobs</option>
@@ -1176,7 +1176,7 @@ print \'</ul>\';
       'admin_title' => 'Manias by Madness',
       'title' => 'Manias by Madness',
       'body' => '<select class="jump-menu"><option selected>- Choose -</option>
-  <option value="/syllogomania">accumulation of possessions; possessions, accumulation of</option>
+  <option value="/syllogomania">accumulation of possessions</option>
   <option value="/mania-a-potu">alcohol intoxication, violent behavior with</option>
   <option value="/callomania">beauty, delusional conviction of one\'s own</option>
   <option value="/thanatomania">death magic has resulted in one\'s illness, delusional belief that </option>
@@ -1211,6 +1211,7 @@ print \'</ul>\';
   <option value="/hypomania">manic mood, mild</option>
   <option value="/desanimania">mindless insanity</option>
   <option value="/pathomania">moral insanity</option>
+  <option value="/syllogomania">possessions, accumulation of</option>
   <option value="/esthesiomania">psychosis dominated by hallucinations</option>
   <option value="/sebastomania">religious insanity</option>
   <option value="/syphilomania">syphilis, delusional belief that one is infected with </option>
