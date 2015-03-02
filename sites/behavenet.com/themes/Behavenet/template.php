@@ -3,11 +3,6 @@ function cmp_values($a, $b) {
   return strnatcasecmp($a['value'], $b['value']);
 }
 
-function behavenet_preprocess_page(&$vars) {
-  // Add the viewport header.
-  $vars['head'] = drupal_set_html_head('<meta viewport="width=device-width, initial-scale=1">');
-}
-
 /**
  * Preprocess function for CCK fields.
  *
