@@ -3201,9 +3201,9 @@ print behavenet_node_qr();
     $pane->shown = TRUE;
     $pane->access = array();
     $pane->configuration = array(
-      'admin_title' => 'Amazon ad',
+      'admin_title' => 'TherapySites ad',
       'title' => '',
-      'body' => '<iframe src="http://rcm.amazon.com/e/cm?t=behavenetrinc&o=1&p=12&l=ur1&category=kindlerotating&f=ifr" width="300" height="250" scrolling="no" border="0" marginwidth="0" style="border:none;" frameborder="0"></iframe>',
+      'body' => '<a href="http://www.therapysites.com/?a_aid=8144&a_bid=3dd8338e"><img src="sites/behavenet.com/themes/Behavenet/images/TS-BEHAVENET-OneMonth.jpg" /></a>',
       'format' => '2',
       'substitute' => 0,
     );
