@@ -479,6 +479,7 @@ print \'</ul>\';
 <option value="/halitophobia">breath, bad</option>
 <option value="/gephyrophobia">bridges</option>
 <option value="/spasmenagaliaphobia">broken glass</option>
+<option value="/spectrophobia">broken mirrors</option>
 <option value="/batophobia">buildings, being close to high</option>
 <option value="/ballistophobia">bullets</option>
 <option value="/taurophobia">bulls</option>
