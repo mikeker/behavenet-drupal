@@ -3203,7 +3203,7 @@ print behavenet_node_qr();
     $pane->configuration = array(
       'admin_title' => 'TherapySites ad',
       'title' => '',
-      'body' => '<a href="http://www.therapysites.com/?a_aid=8144&a_bid=3dd8338e"><img src="//sites/behavenet.com/themes/Behavenet/images/TS-BEHAVENET-OneMonth.jpg" /></a>',
+      'body' => '<a href="http://www.therapysites.com/?a_aid=8144&a_bid=3dd8338e"><img src="/sites/behavenet.com/themes/Behavenet/images/TS-BEHAVENET-OneMonth.jpg" /></a>',
       'format' => '2',
       'substitute' => 0,
     );
