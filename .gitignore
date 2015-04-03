@@ -3,3 +3,6 @@ cgi-bin/*
 sites/*/settings.php
 sites/*/*.make
 sites/*/files
+*.mysql
+*.gz
+**/.sass-cache/*
