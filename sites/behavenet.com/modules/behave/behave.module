@@ -17,6 +17,17 @@ function behave_perm() {
   return array('administer behavenet');
 }
 
+/**
+ * Implements hook_preprocess_page.
+ *
+ * Note: This has to be in a module, not template.php where it belongs, because
+ * Panels Everywhere short-circuits the preprocess functionality and then calls
+ * it again using module_implements(). Alas, there is no such thing as
+ * theme_implements()...
+ */
+function behave_preprocess_page(&$vars) {
+  $vars['head'] = drupal_set_html_head('<meta viewport="width=device-width, initial-scale=1">');
+}
 
 /**
  * Implements hook_menu()
