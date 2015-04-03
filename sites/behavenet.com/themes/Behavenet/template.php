@@ -79,10 +79,12 @@ function behavenet_preprocess_content_field(&$vars) {
         $amzn['detailpageurl']
       );
     }
-    else {
+    else if (!empty($amzn['detailpageurl'])) {
       $link = l('Buy from Amazon', $amzn['detailpageurl']);
     }
-    $vars['items'][0]['view'] = $link;
+    if (!empty($link)) {
+      $vars['items'][0]['view'] = $link;
+    }
   }
 
   // Rewrite secondary Amazon links
