@@ -26,7 +26,7 @@ function behave_perm() {
  * theme_implements()...
  */
 function behave_preprocess_page(&$vars) {
-  $vars['head'] = drupal_set_html_head('<meta viewport="width=device-width, initial-scale=1">');
+  $vars['head'] = drupal_set_html_head('<meta name="viewport" content="width=device-width, initial-scale=1">');
 }
 
 /**
