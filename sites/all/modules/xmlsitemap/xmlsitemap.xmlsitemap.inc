@@ -13,7 +13,6 @@ class XMLSitemapGenerationException extends XMLSitemapException {}
  * Extended class for writing XML sitemap files.
  */
 class XMLSitemapWriter extends XMLWriter {
-  protected $status = TRUE;
   protected $uri = NULL;
   protected $sitemapElementCount = 0;
   protected $linkCountFlush = 500;
@@ -51,18 +50,36 @@ class XMLSitemapWriter extends XMLWriter {
 
   public function startDocument($version = '1.0', $encoding = 'UTF-8', $standalone = NULL) {
     $this->setIndent(FALSE);
-    parent::startDocument($version, $encoding);
+    $result = parent::startDocument($version, $encoding);
+    if (!$result) {
+      throw new XMLSitemapGenerationException(t('Unknown error occurred while writing to file @file.', array('@file' => $this->uri)));
+    }
     if (variable_get('xmlsitemap_xsl', 1)) {
       $this->writeXSL();
     }
     $this->startElement($this->rootElement, TRUE);
+    return $result;
+  }
+
+  public function getSitemapUrl($path, array $options = array()) {
+    $options += $this->sitemap->uri['options'];
+    $options += array(
+      'absolute' => TRUE,
+      'base_url' => variable_get('xmlsitemap_base_url', $GLOBALS['base_url']),
+      'language' => language_default(),
+      'alias' => TRUE,
+    );
+    if (!empty($options['protocol_relative'])) {
+      $options['base_url'] = preg_replace('~^https?:~', '', $options['base_url']);
+    }
+    return url($path, $options);
   }
 
   /**
    * Add the XML stylesheet to the XML page.
    */
   public function writeXSL() {
-    $this->writePi('xml-stylesheet', 'type="text/xsl" href="' . url('sitemap.xsl') . '"');
+    $this->writePi('xml-stylesheet', 'type="text/xsl" href="' . $this->getSitemapUrl('sitemap.xsl', array('protocol_relative' => TRUE)) . '"');
     $this->writeRaw(PHP_EOL);
   }
 
@@ -116,35 +133,25 @@ class XMLSitemapWriter extends XMLWriter {
   /**
    * Write full element tag including support for nested elements.
    *
-   * @param $name
+   * @param string $name
    *   The element name.
-   * @param $content
+   * @param string|array $content
    *   The element contents or an array of the elements' sub-elements.
+   *
+   * @todo Missing a return value since XMLWriter::writeElement() has one.
    */
-  public function writeElement($name, $content = '') {
+  public function writeElement($name, $content = NULL) {
     if (is_array($content)) {
       $this->startElement($name);
-      foreach ($content as $sub_name => $sub_content) {
-        $this->writeElement($sub_name, $sub_content);
-      }
+      $xml_content = format_xml_elements($content);
+      // Remove additional spaces from the output.
+      $xml_content = str_replace(array(" <", ">\n"), array("<", ">"), $xml_content);
+      $this->writeRaw($xml_content);
       $this->endElement();
     }
     else {
       parent::writeElement($name, $content);
     }
-  }
-
-  /**
-   * Override of XMLWriter::flush() to track file writing status.
-   */
-  public function flush($empty = TRUE) {
-    $return = parent::flush($empty);
-    $this->status &= (bool) $return;
-    return $return;
-  }
-
-  public function getStatus() {
-    return $this->status;
   }
 
   public function getURI() {
@@ -158,7 +165,7 @@ class XMLSitemapWriter extends XMLWriter {
   public function endDocument() {
     $return = parent::endDocument();
 
-    if (!$this->getStatus()) {
+    if (!$return) {
       throw new XMLSitemapGenerationException(t('Unknown error occurred while writing to file @file.', array('@file' => $this->uri)));
     }
 
@@ -204,18 +211,9 @@ class XMLSitemapIndexWriter extends XMLSitemapWriter {
   public function generateXML() {
     $lastmod_format = variable_get('xmlsitemap_lastmod_format', XMLSITEMAP_LASTMOD_MEDIUM);
 
-    $url_options = $this->sitemap->uri['options'];
-    $url_options += array(
-      'absolute' => TRUE,
-      'base_url' => variable_get('xmlsitemap_base_url', $GLOBALS['base_url']),
-      'language' => language_default(),
-      'alias' => TRUE,
-    );
-
     for ($i = 1; $i <= $this->sitemap->chunks; $i++) {
-      $url_options['query']['page'] = $i;
       $element = array(
-        'loc' => url('sitemap.xml', $url_options),
+        'loc' => $this->getSitemapUrl('sitemap.xml', array('query' => array('page' => $i))),
         // @todo Use the actual lastmod value of the chunk file.
         'lastmod' => gmdate($lastmod_format, REQUEST_TIME),
       );
