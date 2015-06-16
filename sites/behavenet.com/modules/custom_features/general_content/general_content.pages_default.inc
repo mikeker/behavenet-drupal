@@ -2622,7 +2622,7 @@ googletag.cmd.push(function() { googletag.display(\'div-gpt-ad-1363386745962-3\'
     $pane->configuration = array(
       'admin_title' => 'Amazon Ad',
       'title' => '',
-      'body' => '<iframe src="http://rcm.amazon.com/e/cm?t=behavenetrinc&o=1&p=21&l=ur1&category=health&banner=0PE7YFGPS51S8D4NFP82&f=ifr" width="160" height="160" scrolling="no" border="0" marginwidth="0" style="border:none;" frameborder="0"></iframe>',
+      'body' => '<iframe src="http://rcm-na.amazon-adsystem.com/e/cm?t=behavenetrinc&o=1&p=21&l=ur1&category=health&banner=0PE7YFGPS51S8D4NFP82&f=ifr" width="160" height="160" scrolling="no" border="0" marginwidth="0" style="border:none;" frameborder="0"></iframe>',
       'format' => '2',
       'substitute' => 0,
     );
