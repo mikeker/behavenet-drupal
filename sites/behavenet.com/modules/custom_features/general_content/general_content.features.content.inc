@@ -2909,58 +2909,6 @@ function general_content_content_default_fields() {
     ),
   );
 
-  // Exported field: field_backref_acb5ba612831aff248
-  $fields['sources-field_backref_acb5ba612831aff248'] = array(
-    'field_name' => 'field_backref_acb5ba612831aff248',
-    'type_name' => 'sources',
-    'display_settings' => array(
-      'weight' => '16',
-      'parent' => '',
-      'label' => array(
-        'format' => 'inline',
-      ),
-      'teaser' => array(
-        'format' => 'default',
-        'exclude' => 0,
-      ),
-      'full' => array(
-        'format' => 'default',
-        'exclude' => 0,
-      ),
-      '4' => array(
-        'format' => 'default',
-        'exclude' => 0,
-      ),
-      '2' => array(
-        'format' => 'default',
-        'exclude' => 0,
-      ),
-      '3' => array(
-        'format' => 'default',
-        'exclude' => 0,
-      ),
-      'token' => array(
-        'format' => 'default',
-        'exclude' => 0,
-      ),
-    ),
-    'widget_active' => '1',
-    'type' => 'noderelationships_backref',
-    'required' => '0',
-    'multiple' => '0',
-    'module' => 'noderelationships',
-    'active' => '1',
-    'referrer_type' => 'people',
-    'referrer_field' => 'field_general_related_content',
-    'widget' => array(
-      'label' => 'Back references from Related content in People',
-      'weight' => '16',
-      'description' => '',
-      'type' => 'noderelationships_backref',
-      'module' => 'noderelationships',
-    ),
-  );
-
   // Exported field: field_gen_slang_terms
   $fields['sources-field_gen_slang_terms'] = array(
     'field_name' => 'field_gen_slang_terms',
