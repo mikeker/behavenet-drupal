@@ -2528,6 +2528,7 @@ googletag.cmd.push(function() { googletag.display(\'div-gpt-ad-1363386745962-1\'
       <li><a href="<?php print url(\'taxonomy/term/9018\'); ?>">Jungian</a></li>
       <li><a href="<?php print url(\'taxonomy/term/14303\'); ?>">MI</a></li>
       <li><a href="<?php print url(\'taxonomy/term/9061\'); ?>">Narrative</a></li>
+      <li><a href="<?php print url(\'taxonomy/term/8853\'); ?>">NLP</a></li>
       <li><a href="<?php print url(\'taxonomy/term/13693\'); ?>">PCT</a></li>
       <li><a href="<?php print url(\'taxonomy/term/11331\'); ?>">Psychoanalytic</a></li>
       <li><a href="<?php print url(\'taxonomy/term/8603\'); ?>">Psychodynamic</a></li>
