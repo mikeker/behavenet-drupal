@@ -1104,6 +1104,7 @@ print \'</ul>\';
 <option value="/emetophobia">vomiting</option>
 <option value="/aeronausiphobia">vomiting from air travel</option>
 <option value="/macrophobia">waits, long</option>
+<option value="/expergefaciphobia">waking up</option>
 <option value="/ambulophobia">walking</option>
 <option value="/basophobia">walking</option>
 <option value="/ablutophobia">washing</option>
