@@ -343,6 +343,70 @@ function general_content_default_panels_mini() {
   $mini = new stdClass;
   $mini->disabled = FALSE; /* Edit this to true to make a default mini disabled initially */
   $mini->api_version = 1;
+  $mini->name = 'goodtherapy_ad_block';
+  $mini->category = 'Behavenet';
+  $mini->admin_title = 'GoodTherapy ad block';
+  $mini->admin_description = 'GoodTherapy.org 225 x 90 ad block';
+  $mini->requiredcontexts = array();
+  $mini->contexts = array();
+  $mini->relationships = array();
+  $display = new panels_display;
+  $display->layout = 'onecol';
+  $display->layout_settings = array();
+  $display->panel_settings = array(
+    'style_settings' => array(
+      'default' => NULL,
+      'middle' => NULL,
+    ),
+  );
+  $display->cache = array();
+  $display->title = '';
+  $display->uuid = '7c18a090-60c1-9b04-9d2f-91b07617bf65';
+  $display->content = array();
+  $display->panels = array();
+    $pane = new stdClass;
+    $pane->pid = 'new-7c11c16d-52de-da84-6947-1e6639f5df1c';
+    $pane->panel = 'middle';
+    $pane->type = 'custom';
+    $pane->subtype = 'custom';
+    $pane->shown = TRUE;
+    $pane->access = array();
+    $pane->configuration = array(
+      'admin_title' => '',
+      'title' => '',
+      'body' => '<div id="gt-widget225*90" style="width: 225px;height: 90px;position: relative;background: url(http://www.goodtherapy.org/graph/widget/fat-widget/225x90/3/bg.jpg) no-repeat top left;">
+  <link rel="stylesheet" type="text/css" media="all" href="http://www.goodtherapy.org/graph/widget/fat-widget/225x90/3/layout.css" />
+  <a><img src="http://www.goodtherapy.org/graph/widget/fat-widget/225x90/3/gt-logo.png" class="gtLogo" alt="Good Therapy" width="141" height="auto" border="0" style="box-shadow: none; position: absolute;top: 32px;left: 42px;" /></a>
+  <form action="http://www.goodtherapy.org/search.html" method="get" target="_blank">
+    <p>
+      <input name="search[zipcode]" type="text" class="zipCode" placeholder="Enter your ZIP or City" style="padding: 0px;width: 117px;height: 28px;position: absolute;top: 54px;left: 7px;padding-left: 5px;font: normal 11px/28px Arial, Helvetica, sans-serif;border: 1px solid #b7b7b7;background: #fff;" />
+      <input type="hidden" name="search[miles]" value="25" />
+	<input type="hidden" name="idev_id" value="http://www.goodtherapy.org/idevaffiliate/idevaffiliate.php?id=104_3_4_18" />
+      <input name="submit" type="submit" class="widgetBtn" value="" style="width: 81px;height: 28px;position: absolute;top: 55px;left: 136px;cursor: pointer;border: 0;background: url(http://www.goodtherapy.org/graph/widget/fat-widget/225x90/3/submit-btn.png) no-repeat top left;" />
+    </p>
+  </form>
+</div>',
+      'format' => '2',
+      'substitute' => TRUE,
+    );
+    $pane->cache = array();
+    $pane->style = array(
+      'settings' => NULL,
+    );
+    $pane->css = array();
+    $pane->extras = array();
+    $pane->position = 0;
+    $pane->uuid = '7c11c16d-52de-da84-6947-1e6639f5df1c';
+    $display->content['new-7c11c16d-52de-da84-6947-1e6639f5df1c'] = $pane;
+    $display->panels['middle'][0] = 'new-7c11c16d-52de-da84-6947-1e6639f5df1c';
+  $display->hide_title = PANELS_TITLE_FIXED;
+  $display->title_pane = 'new-7c11c16d-52de-da84-6947-1e6639f5df1c';
+  $mini->display = $display;
+  $export['goodtherapy_ad_block'] = $mini;
+
+  $mini = new stdClass;
+  $mini->disabled = FALSE; /* Edit this to true to make a default mini disabled initially */
+  $mini->api_version = 1;
   $mini->name = 'home_page';
   $mini->category = 'Behavenet';
   $mini->admin_title = 'Home Page top items';
