@@ -3182,11 +3182,7 @@ print behavenet_node_qr();
       'admin_title' => 'GoodTherapy',
       'title' => '',
       'body' => '<div class="behavenet-goodtherapy">
-<a href="http://www.goodtherapy.org/behavenet-welcome-therapist.html"><img src="http://www.goodtherapy.org/graph/join-gt-banners/BehaveNet_300x182.jpg" alt="Join GoodTherapy.org" width="300" height="182" border="0" usemap="#behLink1" title="Join GoodTherapy.org" />
-<map name="behLink1" id="behLink1">
-  <area shape="rect" coords="14,127,154,182" href="http://www.goodtherapy.org/" />
-</map>
-</a>
+<a href="http://www.goodtherapy.org/idevaffiliate/idevaffiliate.php?id=107_2_1_9" target="_blank" rel="nofollow"><img style="border:0px" src="http://www.goodtherapy.org/idevaffiliate/media/banners/grow_your_pratice.jpg" width="300" height="182" alt=""></a>
 </div>',
       'format' => '2',
       'substitute' => 0,
