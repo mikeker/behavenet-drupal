@@ -374,8 +374,7 @@ function general_content_default_panels_mini() {
     $pane->configuration = array(
       'admin_title' => '',
       'title' => '',
-      'body' => '<div id="gt-widget225*90" style="width: 225px;height: 90px;position: relative;background: url(http://www.goodtherapy.org/graph/widget/fat-widget/225x90/3/bg.jpg) no-repeat top left;">
-  <link rel="stylesheet" type="text/css" media="all" href="http://www.goodtherapy.org/graph/widget/fat-widget/225x90/3/layout.css" />
+      'body' => '<div id="gt-widget225_90" style="width: 225px;height: 90px;position: relative;background: url(http://www.goodtherapy.org/graph/widget/fat-widget/225x90/3/bg.jpg) no-repeat top left;margin:0 auto;">
   <a><img src="http://www.goodtherapy.org/graph/widget/fat-widget/225x90/3/gt-logo.png" class="gtLogo" alt="Good Therapy" width="141" height="auto" border="0" style="box-shadow: none; position: absolute;top: 32px;left: 42px;" /></a>
   <form action="http://www.goodtherapy.org/search.html" method="get" target="_blank">
     <p>
