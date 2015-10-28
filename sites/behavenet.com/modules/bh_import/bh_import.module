@@ -21,7 +21,7 @@ function bh_import_menu () {
     'title' => 'test',
     'description' => 'test',
     'page callback' => 'bh_import_test',
-    'access arguments' => array('access content'),
+    'access arguments' => array('administer content'),
   );
   return ($items);
 }
