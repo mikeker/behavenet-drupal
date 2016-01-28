@@ -657,2153 +657,2225 @@ function bh_import_movie_entry($url, $nid, &$context) {
   $context['results'][] = array('success' => TRUE, 'msg' => "Updated $node->title (node/$node->nid)");
 }
 
+/**
+ * Adds a node of type 'generic' and returns the nid of the new node.
+ *
+ * @param string $name
+ *   Name of the new generic drug.
+ *
+ * @return int|bool
+ *   New node->nid on success, FALSE otherwise.
+ */
+function bh_add_generic($name) {
+  $node = new stdClass();
+  $node->type = 'generic';
+  node_object_prepare($node);
+  $node->title = $name;
+  node_save($node);
+  return (isset($node->nid) ? $node->nid : FALSE);
+}
+
+/**
+ * Adds a new trade name drug to the system, optionally associating it with an
+ * existing generic drug.
+ *
+ * @param string $name
+ *   Name of the new trade name drug.
+ * @param int $generic_id
+ *   ID of the associated generic. 0 indicates no generic to be associated.
+ *
+ * @return int|bool
+ *   New node->nid on success, FALSE otherwise.
+ */
+function bh_add_tradename($name, $generic_id = 0) {
+  $node = new stdClass();
+  $node->type = 'generic';
+  node_object_prepare($node);
+  $node->title = $name;
+  if ($generic_id) {
+    $node->field_drug_generic[0]['nid'] = $generic_id;
+  }
+  node_save($node);
+  return (isset($node->nid) ? $node->nid : FALSE);
+}
 
 function bh_import_test() {
   ini_set('max_execution_time', 300);
 
-  $tradenames = array(
-    "Acamprol",
-    "Acamptass",
-    "Acmacal",
-    "ALP",
-    "Alp X",
-    "Alpam",
-    "Alparazole",
-    "Alpaz",
-    "Alpkair",
-    "Alpose",
-    "Alpra",
-    "Alpra G",
-    "Alprac",
-    "Alpracon",
-    "Alpraday",
-    "Alpradol MD",
-    "Alpram",
-    "Alpramax CR",
-    "Alpramax SR",
-    "Alprasan",
-    "Alprastan",
-    "Alprawin",
-    "Alprax MT",
-    "Alprax SR",
-    "Alprazan",
-    "Alprocalm",
-    "Alprocontin",
-    "Alprogard",
-    "Alpronit",
-    "Alprose",
-    "Alprosym",
-    "Alprotame",
-    "Alprowon",
-    "Alproz",
-    "Alprozam",
-    "Alrest",
-    "Alrif",
-    "Alrif XR",
-    "Altok",
-    "Altrex",
-    "Alwel (alprazolam)",
-    "ALZ",
-    "Alzac",
-    "Alzep",
-    "Alzex",
-    "Alzex SR",
-    "Alzin",
-    "Alzo",
-    "Alzoact",
-    "Alzocum",
-    "Alzocum SR",
-    "Alzoft",
-    "Alzokam",
-    "Alzokam SR",
-    "Alzolam",
-    "Alzolam MD",
-    "Alzolam SR",
-    "Alzolite",
-    "Alzom",
-    "Alzomax",
-    "Alzonex",
-    "Alzopam",
-    "Alzopax",
-    "Alzopax XR",
-    "Alzorix",
-    "Alzot",
-    "Alzot SR",
-    "Alzy",
-    "Anax",
-    "Andep",
-    "Anilam",
-    "Anlzium",
-    "Anquil",
-    "Ansilumirm",
-    "Ansilumirm SR",
-    "Anxicalm",
-    "Anxico",
-    "Anxigo",
-    "Anxigo SR",
-    "Anxigon",
-    "Anxilam",
-    "Anximex",
-    "Anxit",
-    "Anxit SR",
-    "Anxitab",
-    "Anxizam",
-    "Anxorel CR",
-    "Anxyl",
-    "Anzal SR",
-    "Anzi",
-    "Anzi SR",
-    "Anzilum",
-    "Anzilum SR",
-    "Apal SR",
-    "Apna",
-    "Apsolam",
-    "APZ",
-    "Aryalam",
-    "Atam",
-    "Ateez",
-    "Atrest",
-    "Avizolem",
-    "Axizox",
-    "Axizox SR",
-    "Axnil",
-    "Azolam",
-    "Azoslip",
-    "Azox",
-    "Azox SR",
-    "B Kalm",
-    "Balmusa",
-    "Balmusa D",
-    "Balzam SR",
-    "Benzolam (New Gayzel)",
-    "Benzolam (Paras)",
-    "Berest",
-    "Besquil",
-    "Bio Zolam",
-    "Bliz",
-    "Bliz MD",
-    "Calm",
-    "Calmef",
-    "Calmtec",
-    "Coolam",
-    "Copax",
-    "Copax SR",
-    "Cqlam",
-    "D Kam",
-    "Dalp LA",
-    "Dazolam",
-    "Deproz",
-    "Dexolam",
-    "Dial",
-    "Dipra",
-    "Diprex",
-    "Dugs",
-    "ECI",
-    "Ecsit SR",
-    "Elzopam",
-    "Emcalm",
-    "Endep (alprazolam)",
-    "Endolam",
-    "Enxolam",
-    "Erazol",
-    "Esteem",
-    "Eurolam",
-    "Eurolam SR",
-    "Exprex",
-    "Exprex SR",
-    "Ezoprax",
-    "F A D",
-    "FAD SR",
-    "Finezol",
-    "G Prax",
-    "G Rest",
-    "Golprax",
-    "Himzolam",
-    "Hipose",
-    "Hipose SR",
-    "Hiprazole",
-    "Hiprazole SR",
-    "Indolam",
-    "Jolistar",
-    "Kaprolam",
-    "L Peez",
-    "Lam",
-    "Lam LA",
-    "Lamad",
-    "Loral",
-    "Loral SR",
-    "Luzarn",
-    "Mandar",
-    "Manorest",
-    "Manorest SR",
-    "Manzolam",
-    "Maxorest",
-    "Mediprex",
-    "Mod Zolam",
-    "Morecalm",
-    "Nexlpra",
-    "Nitril",
-    "Norex",
-    "Notence",
-    "Notens",
-    "Nucalm",
-    "Onapract",
-    "Optizole",
-    "Orten",
-    "Orten Forte",
-    "Ozolam",
-    "P Kala",
-    "P Kalm",
-    "P Zolam",
-    "Pacific (Alpha)",
-    "Pacific (Mankind)",
-    "Pacyl",
-    "Pacyl SR",
-    "Parazolam",
-    "Pax",
-    "Pax SR",
-    "Paxor",
-    "Pecalm",
-    "Pizolam",
-    "Pizolam SR",
-    "Plaxid",
-    "Poex",
-    "Poize",
-    "Pralam",
-    "Prazil",
-    "Prazolam",
-    "Procalm (Cyril)",
-    "Procalm (Radicura)",
-    "Prolam",
-    "Prosanti",
-    "Prozam",
-    "Q Rest",
-    "Quiet",
-    "Reclam",
-    "Relax",
-    "Rescalm",
-    "Resolin",
-    "Restam",
-    "Resto",
-    "Restyl",
-    "Restyl SR",
-    "Rezolam",
-    "Rian",
-    "Richpram SR",
-    "Romipraz",
-    "Roza",
-    "Roza DS",
-    "Rozin",
-    "Runrest",
-    "Salirest SR",
-    "Samitol SR",
-    "Samprex",
-    "Samrox",
-    "Sanprazole",
-    "Secam",
-    "Selam",
-    "Selamb",
-    "Serex",
-    "Setlan",
-    "Shanti",
-    "Shanti SR",
-    "Silam",
-    "Sinozol",
-    "Sinzolam",
-    "Solace",
-    "Somnarest",
-    "Somnia",
-    "Somnirest",
-    "Sowel",
-    "Sozox",
-    "Synozolam",
-    "Tagat",
-    "Tancalm",
-    "Tenan",
-    "Tenfree",
-    "Tenfree SR",
-    "Tenolam",
-    "Tenrid",
-    "Tenschem",
-    "Tenscure",
-    "Tensfree",
-    "Tensyl",
-    "Tenzo",
-    "Texidep",
-    "Tiox",
-    "Tranax",
-    "Tranisol",
-    "Trans",
-    "Trazopin",
-    "Trika (Unichem)",
-    "Trika (Vencare)",
-    "Trika SR",
-    "Tryzo",
-    "Unixl SR",
-    "Viprax",
-    "Visram",
-    "Welnorm",
-    "Wycalm",
-    "Wycalm Fort",
-    "Xanti",
-    "Xanti XR",
-    "Xycalm",
-    "Xylonite",
-    "Zallpam",
-    "Zam",
-    "Zamitol",
-    "Zamitol SR",
-    "Zeecam",
-    "Zeftra",
-    "Zenax",
-    "Zeprax",
-    "Ziety",
-    "Zocam",
-    "Zodia DS",
-    "Zoem",
-    "Zola",
-    "Zola D",
-    "Zola DS",
-    "Zolam (Stadmed)",
-    "Zolam (Sun)",
-    "Zolam SR",
-    "Zolark",
-    "Zolax (alprazolam)",
-    "Zolax SR",
-    "Zoldac",
-    "Zoldac SR",
-    "Zolent",
-    "Zolent SR",
-    "Zolin",
-    "Zolin SR",
-    "Zolipax",
-    "Zolipax SR",
-    "Zoloid",
-    "Zolorel",
-    "Zomark",
-    "Zomark SR",
-    "Zopain",
-    "Zopam",
-    "Zopic",
-    "Zopral",
-    "Zorest",
-    "Zotam",
-    "Zozo",
-    "Amantral",
-    "Amantrel",
-    "Comantrel",
-    "Neaman",
-    "Abamax",
-    "Amiline",
-    "Amilite",
-    "Amimax",
-    "Amit",
-    "Amitone",
-    "Amitop",
-    "Amitop SR",
-    "Amitrac",
-    "Amitrip",
-    "Amitryn",
-    "Amitryptyline",
-    "Amity",
-    "Amiwel",
-    "Amline",
-    "Amoten",
-    "Amrea",
-    "Amsha",
-    "Amsha Forte",
-    "Amsha Plus",
-    "Amtran",
-    "Amypres",
-    "Anitryp",
-    "Axtrip",
-    "Bluneel",
-    "Cotrip",
-    "Crypton",
-    "Dep",
-    "Dot Trip",
-    "Elavin",
-    "Eliwel",
-    "Eptanol",
-    "Estiline",
-    "Gentrip",
-    "Gentrip SR",
-    "Goldep SR",
-    "Kamitrin",
-    "Latilin",
-    "Maxitrip",
-    "Mitrip",
-    "Mitrip SR",
-    "Mitryp",
-    "Nextrip",
-    "Normaline",
-    "Odep",
-    "Pryl SR",
-    "Psycomer",
-    "Raitrip",
-    "Relidep",
-    "Ronet",
-    "Sarotena (CFL)",
-    "Sarotena (Lundbeck)",
-    "Sereval",
-    "Tablin",
-    "Tadamit",
-    "Teedep",
-    "Tridep",
-    "Trip (Jpee)",
-    "Triplent",
-    "Triplex",
-    "Tryptomec",
-    "Tryptomer",
-    "Tryptomer SR",
-    "Typlin",
-    "Typlin OD",
-    "Typteez",
-    "Zyprima",
-    "Apicord",
-    "Arena",
-    "Aria",
-    "Aria (Intas)",
-    "Aria (Nicholas Piramal)",
-    "Aria (Ranbaxy)",
-    "Aridus",
-    "Aridus (Intas)",
-    "Aridus (Nicholas)",
-    "Arilan",
-    "Arilan (Alchem)",
-    "Arilan (Elite)",
-    "Arilan (Micro)",
-    "Arip MT",
-    "Aripat MD",
-    "Aripicon",
-    "Aripra",
-    "Aripra MT",
-    "Arive (Alkem)",
-    "Arive (Cadila)",
-    "Arive (Intas)",
-    "Arive (Micro)",
-    "Arize",
-    "Arol",
-    "Arole",
-    "Arpicin (Cinerea)",
-    "Arpicin (Nicholas)",
-    "Arpicin (Zydus)",
-    "Arpizol",
-    "Arza",
-    "Arzu",
-    "Asprito (Alkem)",
-    "Asprito (Intas)",
-    "Asprito (Zydus)",
-    "Biliff (Gentech)",
-    "Biliff (Glenmark)",
-    "Elrip (Elite)",
-    "Elrip (Nicholas)",
-    "Pipra A",
-    "Real One (Cadila)",
-    "Real One (Nicholas)",
-    "Real One (Zydus)",
-    "Rizotal",
-    "Schizopra (Cadila)",
-    "Schizopra (Cinerea)",
-    "Schizopra (Micro)",
-    "Armod",
-    "Biryth",
-    "Waklert",
-    "Asenapt",
-    "Attentrol",
-    "Axepta",
-    "Tomoxetin",
-    "Baclof OD",
-    "Bacmax",
-    "Chinofen",
-    "Liofen",
-    "Liofen XL",
-    "Parafon DSC",
-    "Riclofen",
-    "Spinofen",
-    "Spinospas",
-    "Tefsole",
-    "Manopar",
-    "B-Crip",
-    "Briptin",
-    "Brom",
-    "Bromocriptine Mesylate",
-    "Bromogen",
-    "Bromolact",
-    "Bromorex",
-    "Bromotin",
-    "Crip D2",
-    "Criptal",
-    "Encript",
-    "Kripti",
-    "Ovucript",
-    "Polodyl",
-    "Proctinal",
-    "Semi Brom",
-    "Serocryptin",
-    "Sicriptin",
-    "Addnok",
-    "Bunogesic",
-    "Buprene",
-    "Buprigesic",
-    "Buprine",
-    "Buprinor",
-    "Morgesic",
-    "Norphin",
-    "Pentorel",
-    "Talgesic",
-    "Tidigesic",
-    "Bupdep",
-    "Bupep SR",
-    "Bupron SR",
-    "Ession ER",
-    "Nicotex",
-    "Nicotex SR",
-    "Nicotex SR FC",
-    "Smoquit SR",
-    "Unidep SR",
-    "Anxipar",
-    "Buscalm",
-    "Buscalm Forte",
-    "Buson",
-    "Buspidac",
-    "Buspin",
-    "Supiron B",
-    "Tamspar",
-    "Butodol",
-    "Butrum",
-    "Cabgolin",
-    "Cablyn",
-    "Cabre",
-    "Camforte",
-    "CB Lin",
-    "Colette",
-    "Parcar",
-    "Acetol",
-    "Carbacontin",
-    "Carbatol",
-    "Carbdac",
-    "Carmaz",
-    "Carzep",
-    "Mazetol",
-    "Mazetol SR",
-    "Tegrital",
-    "Versitol",
-    "Zen",
-    "Zen Retard",
-    "Zeptol",
-    "Aciprodol",
-    "Carisol",
-    "Carisoma",
-    "Anxizide",
-    "Equilibrium",
-    "Clozine Forte (Psychotropics)",
-    "Clozine Plus",
-    "Megatil",
-    "Sun Prazin",
-    "C Pram",
-    "C Talo",
-    "Celepra",
-    "Celica",
-    "Celica FC",
-    "Cipam",
-    "Cipam S",
-    "Citadelm",
-    "Citadep",
-    "Citalent",
-    "Citalomine",
-    "Citalop",
-    "Citalop Tab",
-    "Citara",
-    "Citlop",
-    "Citola",
-    "Citopam",
-    "Cytop",
-    "Feliz",
-    "Frepram",
-    "Lopram",
-    "Madam",
-    "Pocital",
-    "Topdep",
-    "Ultidep",
-    "Zetalo",
-    "Clofranil",
-    "Clomi",
-    "Clomifril",
-    "Clomijet",
-    "Clomilent",
-    "Clomine",
-    "Clomip",
-    "Clomistar",
-    "Clonil",
-    "Clopic",
-    "Ecmin",
-    "Lodep",
-    "Obsenil",
-    "Ocifril",
-    "Ocnil",
-    "Remo",
-    "Syconil",
-    "Syconil FC",
-    "Ultradep Plus",
-    "Adnil",
-    "Anxrea",
-    "Azpax",
-    "Calmnir",
-    "Catier DT",
-    "Cleps",
-    "CLH MD",
-    "Cloam",
-    "Clon",
-    "Clonapax",
-    "Clonapax MD",
-    "Clonapik",
-    "Clonark MD",
-    "Clonax",
-    "Clonax MD",
-    "Clonaxyl",
-    "Cloneepam",
-    "Clonopam",
-    "Clonotril",
-    "Clonzy",
-    "Clopam",
-    "Clopam Tab",
-    "Closed",
-    "Closis",
-    "Clotas",
-    "Cloze",
-    "Cloze MD",
-    "Clozep (Elite)",
-    "Clozep (Esteem)",
-    "Clozep DT (Elite)",
-    "Clozep DT (Esteem)",
-    "Clozorix",
-    "Convaclon",
-    "Cozil",
-    "E-Cloz",
-    "Easyfeel",
-    "Epcon",
-    "Epicloz",
-    "Epilong",
-    "Epitril",
-    "Epizam",
-    "Jasoclam",
-    "Klopam",
-    "Logen MD",
-    "Lonazep",
-    "Lonazep MD",
-    "Lonin 05",
-    "Lozep",
-    "MD Calm",
-    "Meloprax",
-    "Melzap",
-    "Nazee",
-    "Norep",
-    "Norep DT",
-    "Nozim",
-    "Nupam",
-    "Onapil",
-    "Ozepam",
-    "Petril",
-    "Petril MD",
-    "Repam",
-    "Rivotril",
-    "Sezolan",
-    "Sezolep",
-    "Ubitpam",
-    "Xenotril SL",
-    "Zee",
-    "Zeficar",
-    "Zepam",
-    "Zepam MD",
-    "Zeptril",
-    "Zicam DT",
-    "Zozep",
-    "Arkamin",
-    "Clodict",
-    "Benzaday",
-    "Flexabenz",
-    "Flexabenz ER",
-    "Mobrine IR",
-    "Mobrine OD",
-    "Skelebenz",
-    "Dapox",
-    "Dasutra",
-    "Duralast",
-    "Ejalong",
-    "Sustinex",
-    "Zyven OD",
-    "Dexem",
-    "Dextomid",
-    "Alex",
-    "Chericofs",
-    "Cufcure Cough",
-    "Dezex",
-    "DMR",
-    "Junirest",
-    "Lastuss CT",
-    "Lastuss LA",
-    "Lexcofs",
-    "Siades",
-    "Supressa (Nicholas)",
-    "Supressa (Sanofi)",
-    "Tusstat",
-    "Almpose",
-    "Alpazepam",
-    "Alzepam",
-    "Anxol",
-    "Calmod",
-    "Calmpose",
-    "Calmtack",
-    "Cam",
-    "Campin",
-    "Camrelease TR",
-    "Daize",
-    "Diaclam",
-    "Diaz",
-    "Diaze",
-    "Diazecalm",
-    "Diazeco (Consern)",
-    "Diazeco (Ind-Swift)",
-    "Dipax",
-    "Direc 2",
-    "Dizapam",
-    "Dizep",
-    "Dizep P",
-    "Dizy",
-    "DPM",
-    "Elcion CR",
-    "Elpam",
-    "Elpose",
-    "Hypose",
-    "Juniz RDS",
-    "Karpam 5",
-    "Lakpam",
-    "Lori",
-    "Neomesmar",
-    "Nindral (diazepam)",
-    "Nupose",
-    "Osopose",
-    "Paci-Quil",
-    "Paciquil",
-    "Paxum",
-    "Peacin",
-    "Placidox (diazepam)",
-    "Ralium",
-    "Rec DZ",
-    "Silprex",
-    "Sleecalm",
-    "Sparlium",
-    "Starlium",
-    "Valium",
-    "Verzepam",
-    "Zeopse",
-    "Zepose",
-    "Zycalm",
-    "Deadict",
-    "Diabuse",
-    "Tyfusin",
-    "D-Val ER",
-    "Desval ER",
-    "Develpin ER",
-    "Di Elival ER",
-    "Dicorate ER",
-    "Dilex",
-    "Diproex",
-    "Diproex ER",
-    "Discern",
-    "Diso",
-    "Disorate",
-    "Divaa",
-    "Divalex OD",
-    "Divalin ER",
-    "Divalin Ext Tab",
-    "Divalprid OD",
-    "Divalpro",
-    "Divalrate ER",
-    "Divanet OD",
-    "Dixval",
-    "Drvel ER",
-    "E-Valpo",
-    "Encorate",
-    "Encorate Chrono CR",
-    "Encorate Chrono SR",
-    "Epilex",
-    "Epilex EC (divalproex)",
-    "Epirate Chrono",
-    "Epirate SR 500",
-    "Epival",
-    "Epival EC",
-    "Epival ENT",
-    "Epsoval",
-    "Epsoval XR",
-    "Espoval",
-    "Genval OD",
-    "Jydival",
-    "Kayval",
-    "Manoval",
-    "Napilex",
-    "Navalin (divalproex)",
-    "Proval ER",
-    "Sezex",
-    "Sodaval SR",
-    "Sova Chrono",
-    "Spikalon",
-    "Spikalon DV ER",
-    "SV",
-    "Torvate (divalproex)",
-    "Trend XR",
-    "Trival CR",
-    "Val",
-    "Valance (Nicholas)",
-    "Valance (Piramel)",
-    "Valance OD",
-    "Valate",
-    "Valep Chrono",
-    "Valop",
-    "Valowin",
-    "Valp -ER",
-    "Valparin",
-    "Valparin Chrono 500",
-    "Valpex CR",
-    "Valpip Crono",
-    "Valporate Chrono (divalproex)",
-    "Valporil",
-    "Valporil CR",
-    "Valporl CR",
-    "Valprid",
-    "Valprid CR",
-    "Valprosh",
-    "Valprosh CR",
-    "Valrate CR",
-    "Valric",
-    "Valtaril",
-    "Valtec (Aronex)",
-    "Valtec (Cipla)",
-    "Valtril",
-    "Valvo CR",
-    "Velze",
-    "Vinchorate",
-    "VLP",
-    "Zoret",
-    "Alzil",
-    "Aricep",
-    "Demenza",
-    "Depzil",
-    "Donasure",
-    "Donaz",
-    "Donecept",
-    "Donep",
-    "Dopezil",
-    "Dorent",
-    "Nozil",
-    "Pezil",
-    "Depthin",
-    "Do-Re-Me",
-    "Dopin (Ind-Swift)",
-    "Dopin (Taj)",
-    "Dore ME",
-    "Doth",
-    "Dotheris",
-    "Dothimax",
-    "Dothin",
-    "Dothip",
-    "Dothipop",
-    "Dothitab",
-    "Dothivin",
-    "Dotin",
-    "Dotipin",
-    "Dozep",
-    "Druthip (Lifecare Innovations)",
-    "Druthip (LifeCare Labs)",
-    "Edopin (Essweil)",
-    "Edopin (Esteem)",
-    "Elate",
-    "Elden",
-    "Exodep",
-    "Glydot",
-    "M Dothi",
-    "Nexthpin",
-    "Nudoth",
-    "Pindep",
-    "Prothiaden",
-    "Thipin",
-    "Spectra",
-    "Droperol",
-    "2-Dep",
-    "C Pact",
-    "Combac (Consern)",
-    "Combac (Reliance)",
-    "Delok",
-    "Deneurone",
-    "Detine",
-    "DLX",
-    "Dulane",
-    "Dulex",
-    "Dulife",
-    "Dulojoy",
-    "Dulok",
-    "Dulotin",
-    "Duloxee",
-    "Dultin",
-    "Dulx",
-    "Dumore",
-    "Dupact",
-    "Dureep",
-    "Dutin",
-    "Dutine",
-    "Duxet",
-    "Duzac",
-    "Duzela",
-    "DXT (Consern)",
-    "DXT (Reliance)",
-    "Nudep",
-    "Sylonex",
-    "Symbal",
-    "Symbal M",
-    "Sympta",
-    "Ulozet",
-    "Adcapon",
-    "Alwel (escitalopram)",
-    "Ambulax AD",
-    "Anipram",
-    "Articalm",
-    "Atpram",
-    "Axipram",
-    "C Pram S",
-    "Celexa S",
-    "Censpram",
-    "Censpram Lite",
-    "Cilentra",
-    "Cipralex",
-    "Cit",
-    "Cita S",
-    "Citalop S",
-    "Citel",
-    "Citofast",
-    "Citolex",
-    "Cypram",
-    "Depran",
-    "Deptune",
-    "Dexanil",
-    "Ecit",
-    "Ecitalop",
-    "Elcit",
-    "Endeo",
-    "Escidant",
-    "Escimax",
-    "Escita",
-    "Escitalent",
-    "Escitapax",
-    "Escitozan",
-    "Escitrac",
-    "Escopam",
-    "Escytop",
-    "Esdep",
-    "Esfancy",
-    "Esfany",
-    "Esitopa",
-    "Esitor",
-    "Esivan",
-    "Esjoy",
-    "Eslika",
-    "Esok",
-    "Esopam",
-    "Esopram",
-    "Espancy",
-    "Espar",
-    "Espram",
-    "Estal",
-    "Estomine",
-    "Excita",
-    "Ezeepam",
-    "Feliz S",
-    "Firsito",
-    "Jolivel",
-    "Jopram",
-    "Kopram",
-    "Loptal",
-    "Monopram",
-    "Nestilo",
-    "Nexito",
-    "Nexpram",
-    "Pocital S",
-    "Pracidep S",
-    "Prasilex",
-    "Recita",
-    "Rexipra",
-    "Rhopram S",
-    "S Celepra",
-    "S Citadelm",
-    "S Citadep",
-    "S Citlop",
-    "S Zetalo",
-    "SC Talo",
-    "Stalopam",
-    "Szetalo",
-    "Talo",
-    "Topdep S",
-    "Truzap",
-    "Bexomer",
-    "Fulnite",
-    "Zolnite",
-    "Zopimin S",
-    "Acidion",
-    "Dionindon (Indo)",
-    "Dionindon (Zydus)",
-    "Koxma",
-    "Durogesic",
-    "Fendrop",
-    "Fenilate",
-    "Fenstud",
-    "Fent",
-    "Trofentyl",
-    "Verfen",
-    "Fluanxol Depot",
-    "Flupen (East West)",
-    "Flupen (Lifecare)",
-    "Pnxol",
-    "Spenzo",
-    "Anatensol (Abbott)",
-    "Anatensol (Nicholas Piramal)",
-    "Anatensol Decanoate",
-    "F-Tensil",
-    "Fludecan",
-    "Phenodec",
-    "Prolinate",
-    "Fluraz",
-    "Nindral (flurazepam)",
-    "Zomnia (flurazepam)",
-    "Boxamine",
-    "Flumin",
-    "Fluoxa",
-    "Fluvator",
-    "Fluvoxin",
-    "Fluvoxin CR",
-    "Foxa",
-    "Frext",
-    "Frext CR (Intas)",
-    "Ocivox",
-    "Psyvoxin",
-    "Revilife",
-    "Sorest",
-    "Uvox",
-    "Voxamin",
-    "Voxanet",
-    "Fosolin",
-    "Fosphen",
-    "Milorgen",
-    "Dobin",
-    "Encentin",
-    "Gaba",
-    "Gabacent",
-    "Gabaciz",
-    "Gabalept",
-    "Gabantin",
-    "Gabapin",
-    "Gabapin SR",
-    "Gabastar",
-    "Gabata",
-    "Gabatin",
-    "Gabatol",
-    "Gabator",
-    "Gabex",
-    "Gabin",
-    "Gabtin (Auztus)",
-    "Gabtin (West Coast)",
-    "Gaby",
-    "Gentin",
-    "Goben",
-    "Mygaba",
-    "Neogaba",
-    "Nervibrain",
-    "Neupent AF",
-    "Neuropentin",
-    "Neuropin",
-    "Nulex",
-    "Rejunate",
-    "Rejuron",
-    "Sologab",
-    "Templer",
-    "Zepentine",
-    "Zintigo",
-    "Galamer",
-    "Agidol",
-    "Benzydol P",
-    "Brain Rest",
-    "Cizonil",
-    "Cizoren",
-    "Depidol",
-    "Depinase",
-    "Epidol",
-    "Estidol",
-    "Gendol",
-    "Gendol LA",
-    "Halidace",
-    "Halidol",
-    "Halo (Halo)",
-    "Halo (Suraksha)",
-    "Halobid",
-    "Haloday",
-    "Halodi",
-    "Halodil",
-    "Halopace",
-    "Haloperidol",
-    "Halopidol",
-    "Haloxel",
-    "Hapiwin",
-    "Haprol",
-    "Helinase",
-    "Hexidol",
-    "Larenase",
-    "Manonace",
-    "Mindol",
-    "Mindwel",
-    "Nase",
-    "Norma",
-    "Normadol",
-    "Normadol Forte",
-    "Oprex",
-    "Peridol (Densa)",
-    "Peridol (Raikar)",
-    "Relinase",
-    "Relinase LA",
-    "Salidol LA",
-    "Schizol",
-    "Senorm",
-    "Senorm LA",
-    "Seradol (Maneesh)",
-    "Seradol (RPG)",
-    "Serenace",
-    "Sydol",
-    "Sydol LA",
-    "Talendol",
-    "Trancodol",
-    "Trancodol DT",
-    "Triperidol",
-    "Worin",
-    "Zor",
-    "Zoridol",
-    "Antidep",
-    "Antipres",
-    "Depik",
-    "Depnil",
-    "Deprid",
-    "Depsin",
-    "Depsonil",
-    "Diamin",
-    "Elamin",
-    "Eldep (Pharmacia)",
-    "Eldep (Psychotropics)",
-    "Elidep",
-    "Estidep",
-    "Imikon",
-    "Imipra",
-    "Imprex",
-    "Imprin",
-    "IRA",
-    "Karthin",
-    "Manodep",
-    "Microdep",
-    "Min",
-    "Normadep",
-    "PIM (imipramine)",
-    "Talendep",
-    "Aneket",
-    "Anket",
-    "GB-Ket",
-    "Hypnoket",
-    "Keta",
-    "Keta V",
-    "Ketafast",
-    "Ketalin",
-    "Ketam (Inca)",
-    "Ketam (Sun)",
-    "Ketamax",
-    "Ketamine (Paksons)",
-    "Ketared",
-    "Ketasol",
-    "Ketmin",
-    "Ketolide",
-    "Ketotal",
-    "Ketsia",
-    "Kety",
-    "Kmine",
-    "Oblar",
-    "Rekita",
-    "Taurket",
-    "Verket",
-    "Epitic (lamotrigine)",
-    "L G DT (lamotrigine)",
-    "Lamepil (lamotrigine)",
-    "Lamepril MR (lamotrigine)",
-    "Lametec (lamotrigine)",
-    "Lametec DT (lamotrigine)",
-    "Lamitor DT",
-    "Lamorig (lamotrigine)",
-    "Lamosyn (lamotrigine)",
-    "Laogine (lamotrigine)",
-    "Lemit (lamotrigine)",
-    "Lemogen (lamotrigine)",
-    "Lemoring (lamotrigine)",
-    "Epictal",
-    "Epifast",
-    "Lenerve",
-    "Levecetam",
-    "Levesam",
-    "Levroxa",
-    "Levtam (Foreva)",
-    "Levtam (Unichem)",
-    "Torleva",
-    "Bidopal",
-    "Levopa",
-    "Roxin",
-    "Synox",
-    "Thyrochek",
-    "Thyrofit",
-    "Thyronorm",
-    "Thyrosec",
-    "Thyroup",
-    "Thyrowin",
-    "Thyrox",
-    "Lethyrox",
-    "Thormone",
-    "Thyrobuild",
-    "Thyrocon",
-    "Thyroff",
-    "Thyropil",
-    "A-Lith",
-    "Alkalith CR",
-    "Elcab",
-    "Genlith",
-    "Indlith",
-    "Intalith",
-    "Lalithium",
-    "Licab",
-    "Anxilor",
-    "Anxionil",
-    "Anxipose",
-    "Atipam",
-    "Benj",
-    "Biokalm",
-    "Biolar 2",
-    "Calmese",
-    "L Pam",
-    "Larosh",
-    "Larpose",
-    "Lopam",
-    "Lopez",
-    "Loracalm",
-    "Lorakar-2",
-    "Loralite",
-    "Loram",
-    "Lorazine",
-    "Lorel",
-    "Loripam",
-    "Loripam SL",
-    "Lorivan",
-    "Lorpam",
-    "Lorvin",
-    "Norpose",
-    "Olraz",
-    "Trapex",
-    "Urpam-1",
-    "Zelor",
-    "Zepnap",
-    "Enipaxol",
-    "Loxabol",
-    "Loxacon",
-    "Loxapac C",
-    "Loxip",
-    "Normapac",
-    "Axura",
-    "Mentadem",
-    "Depnon",
-    "Seridac",
-    "Tetradep",
-    "Benzosed",
-    "Fulsed",
-    "Mezolam",
-    "Miben",
-    "Midapic",
-    "Midaz",
-    "Midcalm",
-    "Midosed",
-    "Midzee",
-    "Midzol",
-    "Sedeven",
-    "Shortal",
-    "Verzol",
-    "Acmil",
-    "Milnace",
-    "Acudep",
-    "M Pine",
-    "Mastor",
-    "Matiz",
-    "Maz Tab",
-    "Miramind",
-    "Miraz",
-    "Mirazep",
-    "Mirnite",
-    "Mirpine",
-    "Mirt",
-    "Mirtadep (Elite)",
-    "Mirtadep (Unichem)",
-    "Mirtaz",
-    "Mirza",
-    "Mirzest",
-    "Mitab",
-    "Mizap",
-    "Nasdep",
-    "Nupine",
-    "Nutaz",
-    "Ristra (Sybiotec)",
-    "Ristra (Symbiosis)",
-    "Xavin",
-    "Zipdep",
-    "Morex",
-    "Rimarex",
-    "Trima",
-    "Frext CR (Cipla)",
-    "Modapro",
-    "Modatec",
-    "Modfil",
-    "Provake",
-    "Rubuphine",
-    "Nalox",
-    "Narcotan",
-    "Nex 400",
-    "Nalcon",
-    "Naltima",
-    "Naltrex",
-    "Nodict",
-    "Baronite",
-    "Dormin",
-    "Dreem",
-    "Enzed",
-    "Gentravit",
-    "Hypnonex",
-    "Hypnoril",
-    "Hypnotex",
-    "Insomin Forte",
-    "Konit",
-    "Manonit",
-    "N Tra",
-    "Niavet",
-    "Nicare",
-    "Nigap",
-    "Nipam",
-    "Nirosun",
-    "Nit",
-    "Nitavan",
-    "Nite",
-    "Nithra",
-    "Nitrac 10",
-    "Nitram",
-    "Nitrapam (Elite)",
-    "Nitrapam (SP)",
-    "Nitraplan",
-    "Nitravet",
-    "Nitraz SR",
-    "Nitrazepam",
-    "Nitrosh",
-    "Nitrosum",
-    "Nitrosym",
-    "Nitzy",
-    "Sleeparm",
-    "Sleeparm 10",
-    "Stressban",
-    "Depival",
-    "Nordep",
-    "Nortin",
-    "Primox",
-    "Secmin-25",
-    "Sensaril",
-    "Trip (Pifer)",
-    "Jolyon - Md",
-    "Joyzol",
-    "Olan",
-    "Olandus",
-    "Olanex",
-    "Olanzotic",
-    "Oleanz",
-    "Oleanz Rapitab",
-    "Olexar",
-    "Oliza",
-    "Onza",
-    "Ozace",
-    "Ozapin Md",
-    "Psycholanz",
-    "Psychozap",
-    "Zypine",
-    "Placidox (oxazepam)",
-    "Carbox",
-    "Exep",
-    "Mezalog",
-    "Oleptal",
-    "Oleptal DT",
-    "Oleptal OD",
-    "Oscar",
-    "Ox-Mezetol",
-    "Oxana",
-    "Oxana FC",
-    "Oxcarb",
-    "Oxcazo",
-    "Oxep",
-    "Oxeptal (Talent)",
-    "Oxeptal (Zydus)",
-    "Oxetol",
-    "Oxital (Talent)",
-    "Oxital (Zydus)",
-    "Oxmazetol SR",
-    "Oxpine",
-    "Oxrate",
-    "Oxycarb",
-    "Oxzey",
-    "Seizurone OX",
-    "Selzic",
-    "Zenoxa",
-    "Zepox",
-    "Epitic (paliperidone)",
-    "L G DT (paliperidone)",
-    "Lamepil (paliperidone)",
-    "Lamepril MR (paliperidone)",
-    "Lametec (paliperidone)",
-    "Lamidus DT (paliperidone)",
-    "Lamitor OD",
-    "Lamogin",
-    "Lamorig (paliperidone)",
-    "Lamosyn (paliperidone)",
-    "Laogine (paliperidone)",
-    "Lemit (paliperidone)",
-    "Lemogen (paliperidone)",
-    "Lemoring (paliperidone)",
-    "Lyzin",
-    "Baxidep CR",
-    "Curetin",
-    "Leparox",
-    "Leparox SR",
-    "Madotine",
-    "Oxitine CR",
-    "Oxitine PR",
-    "Panex",
-    "Paradise XR",
-    "Pardep",
-    "Pari",
-    "Pari CR",
-    "Parol-25 CR",
-    "Paromec",
-    "Parot",
-    "Parotin",
-    "Parotin CR",
-    "Parotin FC",
-    "Paroxet",
-    "Paroxet SR",
-    "Paxidep CR",
-    "Petin CR",
-    "Pexep",
-    "Pexep CR",
-    "Praxo",
-    "PXT",
-    "Raxit",
-    "Sarolife",
-    "Serotin",
-    "Xepar",
-    "Xet",
-    "Cadiwin",
-    "Forstar",
-    "Fortagesic",
-    "Fortstar",
-    "Fortwin",
-    "Laptol",
-    "Pantazocine Lactate",
-    "Pentalab",
-    "Pentawin",
-    "Penzyl",
-    "Pzocin",
-    "Riddof",
-    "Ridoff",
-    "Susevin",
-    "Tozine",
-    "Verpen",
-    "Wintal",
-    "Zocin",
-    "Verpat",
-    "Barbee",
-    "Barbinol",
-    "Emgard",
-    "Epidard",
-    "Epigard",
-    "Epikon",
-    "Epinil",
-    "Epitan",
-    "Fenobarb",
-    "G-30",
-    "G-60",
-    "Gardenal",
-    "Gee",
-    "Luminal",
-    "Phenetone",
-    "Phenobarb",
-    "Phenobarbitone (Nicholas)",
-    "Phenobarbitone (Samarth)",
-    "Phenobarbitone (Unicure)",
-    "Shenobar",
-    "Shinosun",
-    "Epileptin",
-    "Epsolin",
-    "Eptoin",
-    "Fentoin Er",
-    "Mozep",
-    "Pimodac",
-    "Acter",
-    "Alcetam (Alkem)",
-    "Alcetam (Altius)",
-    "Amcetam (Ampus)",
-    "Amcetam (Redson)",
-    "Anitam",
-    "Antam",
-    "ATR",
-    "Axcetam",
-    "Axetam",
-    "Biocetam",
-    "Biotam",
-    "Braintam",
-    "Brentor (Concord)",
-    "Brentor (Zee)",
-    "Ceact",
-    "Cerabol",
-    "Cerecetam",
-    "Cerenorm",
-    "Ceretam",
-    "Cetam",
-    "Cetasmo",
-    "Cogmax",
-    "Corcetam",
-    "Dementa",
-    "Duracetam",
-    "E Tam",
-    "Encovit",
-    "Esitam",
-    "Etotam",
-    "Evitam",
-    "Excitam",
-    "Floracetam",
-    "Foxitam",
-    "Hicetam",
-    "Ienptam",
-    "J Cetam",
-    "Macetam",
-    "Marcetam",
-    "Maxitam",
-    "Mincetam",
-    "Neetam",
-    "Neucet",
-    "Neurobele",
-    "Neurocet",
-    "Neurocetam (Brown)",
-    "Neurocetam (Micro)",
-    "Neuromax",
-    "Neuronorm",
-    "Neurophil",
-    "Neuropil",
-    "Neuroserge",
-    "Neurospam",
-    "Neutal",
-    "Nextam",
-    "Nicetam",
-    "Nicetam Caps",
-    "Noofit",
-    "Nootropil (Adon)",
-    "Nootropil (UCB)",
-    "Nootropil Sachet",
-    "Normabrain",
-    "Normalite",
-    "Normenta",
-    "Nucetam",
-    "Nupic",
-    "Nurest",
-    "Nurobala",
-    "Nutam",
-    "Nutam FC",
-    "Nutropic",
-    "Olcitam",
-    "Orotam",
-    "Otam",
-    "Oxocetam",
-    "Pacitam",
-    "PCT",
-    "Pdneuro",
-    "Pentor",
-    "PIE",
-    "PIM (piracetam)",
-    "Pira",
-    "Pira OD",
-    "Pirac",
-    "Pirac Inf",
-    "Piracas",
-    "Piracer",
-    "Pirajet",
-    "Pirakar",
-    "Pirakar Forte",
-    "Pirakin",
-    "Piramax",
-    "Pirament",
-    "Piranis",
-    "Pirariv",
-    "Piratab",
-    "Piratam",
-    "Pirav",
-    "Pitam",
-    "Polcetam",
-    "Polytam",
-    "Psycopir",
-    "Psynep",
-    "PTM",
-    "Pvittam",
-    "Ractum",
-    "Rcetam",
-    "Renervol P",
-    "Retam",
-    "Stem",
-    "Sumocetam",
-    "Tam",
-    "Tampira",
-    "Ubittor",
-    "Ultacetam",
-    "Upcetam",
-    "Wincetam",
-    "Winrace",
-    "Zantam",
-    "Zetam",
-    "Zopres",
-    "Parpex",
-    "Pramipex",
-    "Cyber CR",
-    "Czoprexx XL",
-    "Prazocip XL",
-    "Prazopress",
-    "Prazopress XL",
-    "Prazovin XL",
-    "Gabafit",
-    "Gabamax",
-    "Gabanext",
-    "Gabasafe",
-    "Galinerve (Sun Rise)",
-    "Galinerve (Sun)",
-    "Maxgalin",
-    "Nuramed",
-    "Pevesca",
-    "Pregab",
-    "Pregaba",
-    "Pregabin",
-    "Pregacon",
-    "Pregalin Caps",
-    "Preganerve",
-    "Pregastar",
-    "Pregeb",
-    "Preneu",
-    "Proage",
-    "Progab",
-    "Bukatel",
-    "Emidoxyn",
-    "Emidoxyn Forte",
-    "Ingametil",
-    "Meditil",
-    "Stemetil",
-    "Celofol",
-    "Critifol",
-    "Fresofol",
-    "Neorof",
-    "Propovan",
-    "Rofol",
-    "Parvodex",
-    "Conquet",
-    "Placidin",
-    "Psyquit",
-    "Q Pin",
-    "Q-Mind",
-    "Q-Win",
-    "Quel",
-    "Quel SR",
-    "Quetic",
-    "Queticare",
-    "Qutace",
-    "Qutan",
-    "Qutec",
-    "Quticool",
-    "Qutipin (Sun)",
-    "Qutipin (Symbiosis)",
-    "Qutipin SR",
-    "Seroquin",
-    "Seroquin FC",
-    "Sizoquit",
-    "Socalm",
-    "Relgin",
-    "Narebox",
-    "Reboot",
-    "Rebotin",
-    "Reboxxin",
-    "Rilutor",
-    "Benzix",
-    "Eauris",
-    "Genrest",
-    "Neudon",
-    "Nudon",
-    "Peridon",
-    "Phallus",
-    "Psydon",
-    "R-Don",
-    "Ragrace",
-    "Rasin",
-    "Regrace",
-    "Repid",
-    "Repridon MD",
-    "Rescalm DN",
-    "Respid",
-    "Respidon",
-    "Respijet",
-    "Respimed",
-    "Resqe",
-    "Resque",
-    "Retardon",
-    "RI",
-    "Ridon",
-    "Rion",
-    "Riposh",
-    "Riscalm",
-    "Risclam",
-    "Riscon",
-    "Risdone",
-    "Riskar",
-    "Risnia",
-    "Risperiv",
-    "Rispid",
-    "Rispond",
-    "Ristab",
-    "Ristal",
-    "Riszes",
-    "Rize",
-    "Rozidal",
-    "Shazone",
-    "Sizodon",
-    "Sizodon MD",
-    "Sizomax",
-    "Sperd",
-    "Speridon",
-    "Sycodone",
-    "Ubitdon",
-    "Zepid",
-    "Zisper MD",
-    "Zodon",
-    "Zon",
-    "Rivadem",
-    "Rivamer",
-    "Rivasmine",
-    "Srivasmine",
-    "Zeemine",
-    "Parkirop",
-    "Ropark",
-    "Ropeway",
-    "Ropin",
-    "Ropitor",
-    "Elegelin",
-    "Jumax",
-    "Jumex (Sanofi)",
-    "Jumex (Torrent)",
-    "Selerin",
-    "Selgin",
-    "Actiser",
-    "Alin",
-    "Asert",
-    "Atline",
-    "Daxid",
-    "Dazolin",
-    "Denzy",
-    "Depsert",
-    "Episod",
-    "Inosert",
-    "Insert",
-    "Lindep",
-    "Mares",
-    "Medisert",
-    "Normaset",
-    "Obzin",
-    "Pifser",
-    "Resert",
-    "Restalin",
-    "Retalin",
-    "Senta",
-    "Serdep",
-    "Serenata",
-    "Serfia",
-    "Serjet",
-    "Serlift",
-    "Serlin",
-    "Serne",
-    "Sernit",
-    "Seron",
-    "Serotra",
-    "Serpan",
-    "Serta",
-    "Sertaj",
-    "Sertakem",
-    "Sertawin",
-    "Sertee",
-    "Sertil",
-    "Sertim",
-    "Sertima",
-    "Sertimo",
-    "Sertin",
-    "Sertodep",
-    "Sertop",
-    "Sertosh",
-    "Serybest",
-    "Setal",
-    "Setalin",
-    "Setex",
-    "Setraline",
-    "Sezol",
-    "Srlin",
-    "Steel",
-    "Steet -50",
-    "Tralin",
-    "Xsert",
-    "Yline",
-    "Zert OD",
-    "Zoline",
-    "Zoloft",
-    "Zosert",
-    "Zotral",
-    "Duovolt",
-    "Tapal",
-    "Transdol",
-    "Tydol",
-    "Xtradol",
-    "Oncothal",
-    "Talimyde",
-    "Thaangio",
-    "Thalix",
-    "Thaloda",
-    "Thalon",
-    "Thycad",
-    "Tolimid",
-    "Anesthal",
-    "Intraval Sodium (Piramal)",
-    "Intraval Sodium (Rhone)",
-    "Pentone",
-    "Thiosal",
-    "Thiosol",
-    "Thipen",
-    "Iorid",
-    "Melleril",
-    "Melozine",
-    "Ridazin",
-    "Ridazine",
-    "Sychozine",
-    "Sycoril",
-    "Tensaril",
-    "Thiolent",
-    "Thiolite",
-    "Thioril",
-    "Thiozid",
-    "Thoraplan",
-    "Zeneril",
-    "Zina",
-    "Tigatel",
-    "Topper",
-    "Acupain",
-    "Anatram",
-    "Armadol",
-    "Asic",
-    "Atdol DT",
-    "Bestodol",
-    "Cemadol CR",
-    "Combitram",
-    "Contradoc",
-    "Cosdol",
-    "Damol",
-    "Damol SR",
-    "Decotram",
-    "Dolfre DT",
-    "Dolfre SR",
-    "Dolriz",
-    "Dolta",
-    "Domadol",
-    "Drobit",
-    "Eltram 50 DT",
-    "Eltram P",
-    "Euphodol",
-    "Hyperdol",
-    "Inodol",
-    "Ivydol SR",
-    "Jpdol",
-    "Mandol DT",
-    "Medol",
-    "Medol SR",
-    "Mydol",
-    "Nomadol",
-    "Nopidol",
-    "Novadol",
-    "OC-Dol",
-    "Odel",
-    "Ondol",
-    "Opi Ot",
-    "Opidol SR",
-    "Opigesic",
-    "Opiran",
-    "Orchidol",
-    "Painadol",
-    "Painadol SR",
-    "Paine",
-    "Postadol",
-    "Ramax",
-    "Redimol",
-    "Sayodol DT",
-    "Sedate",
-    "Simol",
-    "Soztram",
-    "Strom",
-    "T - Dol",
-    "Tandam",
-    "Tradol",
-    "Tragesic",
-    "Tram (Alchemis)",
-    "Tram (Valiant)",
-    "Trama",
-    "Tramache",
-    "Tramacip",
-    "Tramacon",
-    "Tramacon DT",
-    "Tramacon SR",
-    "Tramaflam",
-    "Tramagesic",
-    "Tramak",
-    "Tramakind",
-    "Tramared",
-    "Tramasol",
-    "Tramataur",
-    "Tramataur SR",
-    "Trambax",
-    "Tramex Tab",
-    "Trami",
-    "Tramospas",
-    "Tramot",
-    "Tramp Tab",
-    "Trandy DT",
-    "Trasic",
-    "Trasic SR",
-    "Trazac",
-    "TRD-MD",
-    "Treat",
-    "Tridol",
-    "Trim",
-    "Trofel",
-    "Troma",
-    "Tromar",
-    "Tromy DT",
-    "Trugesic",
-    "Trump",
-    "Ubitdol",
-    "Urgendol SR",
-    "Urgendol XL",
-    "Veeradol",
-    "Veeradol SR",
-    "Vegadol DT",
-    "Xtram",
-    "Zotadol",
-    "Depryl",
-    "Tazodac",
-    "Tragon",
-    "Trazalon",
-    "Trazan",
-    "Trazaril",
-    "Traze",
-    "Trazodep",
-    "Trazolite",
-    "Trazonil",
-    "Trittico (Dagon)",
-    "Trittico (Elder)",
-    "Foskid",
-    "Nucloryl",
-    "Pedicloryl Syrup",
-    "Silence",
-    "Tricloryl",
-    "Triclotross",
-    "Dipicalm",
-    "Elicalm",
-    "Flucalm",
-    "Gencalm",
-    "Manocalm",
-    "Neocalm",
-    "Normacalm",
-    "Psycalm",
-    "Relicalm",
-    "Selocalm",
-    "Talecalm",
-    "Trazine",
-    "Trinicalm",
-    "Siquil",
-    "Suntulan",
-    "Ancolin",
-    "Antichol",
-    "Arkane",
-    "Barohexy",
-    "Bexol",
-    "Clozine Forte (Pharmacia)",
-    "Dyskinil",
-    "Dystonil",
-    "Epsinil",
-    "Hexydyl",
-    "Hexylent",
-    "Hexyriv 2",
-    "Lahexy",
-    "Manohexy",
-    "Maphyl",
-    "Pacidyl",
-    "Pacitane",
-    "Parales",
-    "Parkin",
-    "Parkitane",
-    "Parnon",
-    "Ptempt",
-    "Relihexy",
-    "Seretane DT",
-    "Texyl (Calyx)",
-    "Texyl (Symbiosis)",
-    "THP",
-    "Tixil",
-    "Tri-Ex",
-    "Tridepinase",
-    "Trihexiphenidyl",
-    "Trihexy",
-    "Triphen",
-    "Tryal",
-    "TXP 2",
-    "Zoxol",
-    "Devot XL",
-    "Epilex EC (valproate)",
-    "Navalin (valproate)",
-    "Torvate (valproate)",
-    "Valcot CR",
-    "Valporate Chrono (valproate)",
-    "Champix",
-    "Dalium",
-    "Envelaf",
-    "Flavix",
-    "Flavix XR",
-    "Sentosa",
-    "Sentosa ER",
-    "Velax SR",
-    "Velfex",
-    "Ven OD",
-    "Venaxin",
-    "Venaxin SR",
-    "Vendep XR",
-    "Venfax PR",
-    "Venish",
-    "Venish SR",
-    "Veniz XR",
-    "Venla",
-    "Venla Suscap",
-    "Venla XR",
-    "Venlift",
-    "Venlift OD",
-    "Venlor",
-    "Venlor XR",
-    "Venset",
-    "Venx",
-    "Vexor",
-    "Hyplon",
-    "Stilnite",
-    "Zalep",
-    "Zalpilo",
-    "Zaplon",
-    "Zaso",
-    "Azona",
-    "Zipsydon",
-    "Ambiz",
-    "Ambulax Z",
-    "Azold",
-    "Dactive",
-    "Dem",
-    "Getrest",
-    "Insom ZD",
-    "Isodem",
-    "Kayzole",
-    "Lipidem",
-    "Lopitas",
-    "Lypin",
-    "Nidra",
-    "Nitrest",
-    "Olpid",
-    "Pedo",
-    "Restem",
-    "Sobrium",
-    "Sove",
-    "Sove IT",
-    "Soza",
-    "Stilnoct CR",
-    "Syzol",
-    "Zanlop",
-    "Zappy",
-    "Zedem",
-    "Zem",
-    "Zleep",
-    "Zodem",
-    "Zolax (zolpidem)",
-    "Zolcent",
-    "Zoldem",
-    "Zolep",
-    "Zolfresh",
-    "Zolip",
-    "Zolit 10",
-    "Zolnex",
-    "Zolojet",
-    "Zolp",
-    "Zolpi",
-    "Zolpiapt",
-    "Zolpid",
-    "Zolpirest",
-    "Zolpistar",
-    "Zolpitrac",
-    "Zolway",
-    "Zomnia (zolpidem)",
-    "Zopid",
-    "Zonicare",
-    "Zonimid",
-    "Zonisep",
-    "Zonit",
-    "Lyzop",
-    "Zeclone",
-    "Ziclone",
-    "Zolinox",
-    "Zolium",
-    "Zolog",
-    "Zonap",
-    "Zopenta",
-    "Zopicon",
-    "Zopitran",
-    "Sirilept",
-    "Almee",
-  );
+  $import = array();
+  $import[] = array('acamprosate' => 'Acamprol');
+  $import[] = array('acamprosate' => 'Acamptass');
+  $import[] = array('acamprosate' => 'Acmacal');
+  $import[] = array('alprazolam' => 'ALP');
+  $import[] = array('alprazolam' => 'Alp X');
+  $import[] = array('alprazolam' => 'Alpam');
+  $import[] = array('alprazolam' => 'Alparazole');
+  $import[] = array('alprazolam' => 'Alpaz');
+  $import[] = array('alprazolam' => 'Alpkair');
+  $import[] = array('alprazolam' => 'Alpose');
+  $import[] = array('alprazolam' => 'Alpra');
+  $import[] = array('alprazolam' => 'Alpra G');
+  $import[] = array('alprazolam' => 'Alprac');
+  $import[] = array('alprazolam' => 'Alpracon');
+  $import[] = array('alprazolam' => 'Alpraday');
+  $import[] = array('alprazolam' => 'Alpradol MD');
+  $import[] = array('alprazolam' => 'Alpram');
+  $import[] = array('alprazolam' => 'Alpramax CR');
+  $import[] = array('alprazolam' => 'Alpramax SR');
+  $import[] = array('alprazolam' => 'Alprasan');
+  $import[] = array('alprazolam' => 'Alprastan');
+  $import[] = array('alprazolam' => 'Alprawin');
+  $import[] = array('alprazolam' => 'Alprax MT');
+  $import[] = array('alprazolam' => 'Alprax SR');
+  $import[] = array('alprazolam' => 'Alprazan');
+  $import[] = array('alprazolam' => 'Alprocalm');
+  $import[] = array('alprazolam' => 'Alprocontin');
+  $import[] = array('alprazolam' => 'Alprogard');
+  $import[] = array('alprazolam' => 'Alpronit');
+  $import[] = array('alprazolam' => 'Alprose');
+  $import[] = array('alprazolam' => 'Alprosym');
+  $import[] = array('alprazolam' => 'Alprotame');
+  $import[] = array('alprazolam' => 'Alprowon');
+  $import[] = array('alprazolam' => 'Alproz');
+  $import[] = array('alprazolam' => 'Alprozam');
+  $import[] = array('alprazolam' => 'Alrest');
+  $import[] = array('alprazolam' => 'Alrif');
+  $import[] = array('alprazolam' => 'Alrif XR');
+  $import[] = array('alprazolam' => 'Altok');
+  $import[] = array('alprazolam' => 'Altrex');
+  $import[] = array('alprazolam' => 'Alwel (alprazolam)');
+  $import[] = array('alprazolam' => 'ALZ');
+  $import[] = array('alprazolam' => 'Alzac');
+  $import[] = array('alprazolam' => 'Alzep');
+  $import[] = array('alprazolam' => 'Alzex');
+  $import[] = array('alprazolam' => 'Alzex SR');
+  $import[] = array('alprazolam' => 'Alzin');
+  $import[] = array('alprazolam' => 'Alzo');
+  $import[] = array('alprazolam' => 'Alzoact');
+  $import[] = array('alprazolam' => 'Alzocum');
+  $import[] = array('alprazolam' => 'Alzocum SR');
+  $import[] = array('alprazolam' => 'Alzoft');
+  $import[] = array('alprazolam' => 'Alzokam');
+  $import[] = array('alprazolam' => 'Alzokam SR');
+  $import[] = array('alprazolam' => 'Alzolam');
+  $import[] = array('alprazolam' => 'Alzolam MD');
+  $import[] = array('alprazolam' => 'Alzolam SR');
+  $import[] = array('alprazolam' => 'Alzolite');
+  $import[] = array('alprazolam' => 'Alzom');
+  $import[] = array('alprazolam' => 'Alzomax');
+  $import[] = array('alprazolam' => 'Alzonex');
+  $import[] = array('alprazolam' => 'Alzopam');
+  $import[] = array('alprazolam' => 'Alzopax');
+  $import[] = array('alprazolam' => 'Alzopax XR');
+  $import[] = array('alprazolam' => 'Alzorix');
+  $import[] = array('alprazolam' => 'Alzot');
+  $import[] = array('alprazolam' => 'Alzot SR');
+  $import[] = array('alprazolam' => 'Alzy');
+  $import[] = array('alprazolam' => 'Anax');
+  $import[] = array('alprazolam' => 'Andep');
+  $import[] = array('alprazolam' => 'Anilam');
+  $import[] = array('alprazolam' => 'Anlzium');
+  $import[] = array('alprazolam' => 'Anquil');
+  $import[] = array('alprazolam' => 'Ansilumirm');
+  $import[] = array('alprazolam' => 'Ansilumirm SR');
+  $import[] = array('alprazolam' => 'Anxicalm');
+  $import[] = array('alprazolam' => 'Anxico');
+  $import[] = array('alprazolam' => 'Anxigo');
+  $import[] = array('alprazolam' => 'Anxigo SR');
+  $import[] = array('alprazolam' => 'Anxigon');
+  $import[] = array('alprazolam' => 'Anxilam');
+  $import[] = array('alprazolam' => 'Anximex');
+  $import[] = array('alprazolam' => 'Anxit');
+  $import[] = array('alprazolam' => 'Anxit SR');
+  $import[] = array('alprazolam' => 'Anxitab');
+  $import[] = array('alprazolam' => 'Anxizam');
+  $import[] = array('alprazolam' => 'Anxorel CR');
+  $import[] = array('alprazolam' => 'Anxyl');
+  $import[] = array('alprazolam' => 'Anzal SR');
+  $import[] = array('alprazolam' => 'Anzi');
+  $import[] = array('alprazolam' => 'Anzi SR');
+  $import[] = array('alprazolam' => 'Anzilum');
+  $import[] = array('alprazolam' => 'Anzilum SR');
+  $import[] = array('alprazolam' => 'Apal SR');
+  $import[] = array('alprazolam' => 'Apna');
+  $import[] = array('alprazolam' => 'Apsolam');
+  $import[] = array('alprazolam' => 'APZ');
+  $import[] = array('alprazolam' => 'Aryalam');
+  $import[] = array('alprazolam' => 'Atam');
+  $import[] = array('alprazolam' => 'Ateez');
+  $import[] = array('alprazolam' => 'Atrest');
+  $import[] = array('alprazolam' => 'Avizolem');
+  $import[] = array('alprazolam' => 'Axizox');
+  $import[] = array('alprazolam' => 'Axizox SR');
+  $import[] = array('alprazolam' => 'Axnil');
+  $import[] = array('alprazolam' => 'Azolam');
+  $import[] = array('alprazolam' => 'Azoslip');
+  $import[] = array('alprazolam' => 'Azox');
+  $import[] = array('alprazolam' => 'Azox SR');
+  $import[] = array('alprazolam' => 'B Kalm');
+  $import[] = array('alprazolam' => 'Balmusa');
+  $import[] = array('alprazolam' => 'Balmusa D');
+  $import[] = array('alprazolam' => 'Balzam SR');
+  $import[] = array('alprazolam' => 'Benzolam (New Gayzel)');
+  $import[] = array('alprazolam' => 'Benzolam (Paras)');
+  $import[] = array('alprazolam' => 'Berest');
+  $import[] = array('alprazolam' => 'Besquil');
+  $import[] = array('alprazolam' => 'Bio Zolam');
+  $import[] = array('alprazolam' => 'Bliz');
+  $import[] = array('alprazolam' => 'Bliz MD');
+  $import[] = array('alprazolam' => 'Calm');
+  $import[] = array('alprazolam' => 'Calmef');
+  $import[] = array('alprazolam' => 'Calmtec');
+  $import[] = array('alprazolam' => 'Coolam');
+  $import[] = array('alprazolam' => 'Copax');
+  $import[] = array('alprazolam' => 'Copax SR');
+  $import[] = array('alprazolam' => 'Cqlam');
+  $import[] = array('alprazolam' => 'D Kam');
+  $import[] = array('alprazolam' => 'Dalp LA');
+  $import[] = array('alprazolam' => 'Dazolam');
+  $import[] = array('alprazolam' => 'Deproz');
+  $import[] = array('alprazolam' => 'Dexolam');
+  $import[] = array('alprazolam' => 'Dial');
+  $import[] = array('alprazolam' => 'Dipra');
+  $import[] = array('alprazolam' => 'Diprex');
+  $import[] = array('alprazolam' => 'Dugs');
+  $import[] = array('alprazolam' => 'ECI');
+  $import[] = array('alprazolam' => 'Ecsit SR');
+  $import[] = array('alprazolam' => 'Elzopam');
+  $import[] = array('alprazolam' => 'Emcalm');
+  $import[] = array('alprazolam' => 'Endep (alprazolam)');
+  $import[] = array('alprazolam' => 'Endolam');
+  $import[] = array('alprazolam' => 'Enxolam');
+  $import[] = array('alprazolam' => 'Erazol');
+  $import[] = array('alprazolam' => 'Esteem');
+  $import[] = array('alprazolam' => 'Eurolam');
+  $import[] = array('alprazolam' => 'Eurolam SR');
+  $import[] = array('alprazolam' => 'Exprex');
+  $import[] = array('alprazolam' => 'Exprex SR');
+  $import[] = array('alprazolam' => 'Ezoprax');
+  $import[] = array('alprazolam' => 'F A D');
+  $import[] = array('alprazolam' => 'FAD SR');
+  $import[] = array('alprazolam' => 'Finezol');
+  $import[] = array('alprazolam' => 'G Prax');
+  $import[] = array('alprazolam' => 'G Rest');
+  $import[] = array('alprazolam' => 'Golprax');
+  $import[] = array('alprazolam' => 'Himzolam');
+  $import[] = array('alprazolam' => 'Hipose');
+  $import[] = array('alprazolam' => 'Hipose SR');
+  $import[] = array('alprazolam' => 'Hiprazole');
+  $import[] = array('alprazolam' => 'Hiprazole SR');
+  $import[] = array('alprazolam' => 'Indolam');
+  $import[] = array('alprazolam' => 'Jolistar');
+  $import[] = array('alprazolam' => 'Kaprolam');
+  $import[] = array('alprazolam' => 'L Peez');
+  $import[] = array('alprazolam' => 'Lam');
+  $import[] = array('alprazolam' => 'Lam LA');
+  $import[] = array('alprazolam' => 'Lamad');
+  $import[] = array('alprazolam' => 'Loral');
+  $import[] = array('alprazolam' => 'Loral SR');
+  $import[] = array('alprazolam' => 'Luzarn');
+  $import[] = array('alprazolam' => 'Mandar');
+  $import[] = array('alprazolam' => 'Manorest');
+  $import[] = array('alprazolam' => 'Manorest SR');
+  $import[] = array('alprazolam' => 'Manzolam');
+  $import[] = array('alprazolam' => 'Maxorest');
+  $import[] = array('alprazolam' => 'Mediprex');
+  $import[] = array('alprazolam' => 'Mod Zolam');
+  $import[] = array('alprazolam' => 'Morecalm');
+  $import[] = array('alprazolam' => 'Nexlpra');
+  $import[] = array('alprazolam' => 'Nitril');
+  $import[] = array('alprazolam' => 'Norex');
+  $import[] = array('alprazolam' => 'Notence');
+  $import[] = array('alprazolam' => 'Notens');
+  $import[] = array('alprazolam' => 'Nucalm');
+  $import[] = array('alprazolam' => 'Onapract');
+  $import[] = array('alprazolam' => 'Optizole');
+  $import[] = array('alprazolam' => 'Orten');
+  $import[] = array('alprazolam' => 'Orten Forte');
+  $import[] = array('alprazolam' => 'Ozolam');
+  $import[] = array('alprazolam' => 'P Kala');
+  $import[] = array('alprazolam' => 'P Kalm');
+  $import[] = array('alprazolam' => 'P Zolam');
+  $import[] = array('alprazolam' => 'Pacific (Alpha)');
+  $import[] = array('alprazolam' => 'Pacific (Mankind)');
+  $import[] = array('alprazolam' => 'Pacyl');
+  $import[] = array('alprazolam' => 'Pacyl SR');
+  $import[] = array('alprazolam' => 'Parazolam');
+  $import[] = array('alprazolam' => 'Pax (alprazolam)');
+  $import[] = array('alprazolam' => 'Pax SR');
+  $import[] = array('alprazolam' => 'Paxor (alprazolam)');
+  $import[] = array('alprazolam' => 'Pecalm');
+  $import[] = array('alprazolam' => 'Pizolam');
+  $import[] = array('alprazolam' => 'Pizolam SR');
+  $import[] = array('alprazolam' => 'Plaxid');
+  $import[] = array('alprazolam' => 'Poex');
+  $import[] = array('alprazolam' => 'Poize');
+  $import[] = array('alprazolam' => 'Pralam');
+  $import[] = array('alprazolam' => 'Prazil');
+  $import[] = array('alprazolam' => 'Prazolam');
+  $import[] = array('alprazolam' => 'Procalm (Cyril)');
+  $import[] = array('alprazolam' => 'Procalm (Radicura)');
+  $import[] = array('alprazolam' => 'Prolam');
+  $import[] = array('alprazolam' => 'Prosanti');
+  $import[] = array('alprazolam' => 'Prozam');
+  $import[] = array('alprazolam' => 'Q Rest');
+  $import[] = array('alprazolam' => 'Quiet');
+  $import[] = array('alprazolam' => 'Reclam');
+  $import[] = array('alprazolam' => 'Relax');
+  $import[] = array('alprazolam' => 'Rescalm');
+  $import[] = array('alprazolam' => 'Resolin');
+  $import[] = array('alprazolam' => 'Restam');
+  $import[] = array('alprazolam' => 'Resto');
+  $import[] = array('alprazolam' => 'Restyl');
+  $import[] = array('alprazolam' => 'Restyl SR');
+  $import[] = array('alprazolam' => 'Rezolam');
+  $import[] = array('alprazolam' => 'Rian');
+  $import[] = array('alprazolam' => 'Richpram SR');
+  $import[] = array('alprazolam' => 'Romipraz');
+  $import[] = array('alprazolam' => 'Roza');
+  $import[] = array('alprazolam' => 'Roza DS');
+  $import[] = array('alprazolam' => 'Rozin');
+  $import[] = array('alprazolam' => 'Runrest');
+  $import[] = array('alprazolam' => 'Salirest SR');
+  $import[] = array('alprazolam' => 'Samitol SR');
+  $import[] = array('alprazolam' => 'Samprex');
+  $import[] = array('alprazolam' => 'Samrox');
+  $import[] = array('alprazolam' => 'Sanprazole');
+  $import[] = array('alprazolam' => 'Secam');
+  $import[] = array('alprazolam' => 'Selam');
+  $import[] = array('alprazolam' => 'Selamb');
+  $import[] = array('alprazolam' => 'Serex');
+  $import[] = array('alprazolam' => 'Setlan');
+  $import[] = array('alprazolam' => 'Shanti');
+  $import[] = array('alprazolam' => 'Shanti SR');
+  $import[] = array('alprazolam' => 'Silam');
+  $import[] = array('alprazolam' => 'Sinozol');
+  $import[] = array('alprazolam' => 'Sinzolam');
+  $import[] = array('alprazolam' => 'Solace');
+  $import[] = array('alprazolam' => 'Somnarest');
+  $import[] = array('alprazolam' => 'Somnia');
+  $import[] = array('alprazolam' => 'Somnirest');
+  $import[] = array('alprazolam' => 'Sowel');
+  $import[] = array('alprazolam' => 'Sozox');
+  $import[] = array('alprazolam' => 'Synozolam');
+  $import[] = array('alprazolam' => 'Tagat');
+  $import[] = array('alprazolam' => 'Tancalm');
+  $import[] = array('alprazolam' => 'Tenan');
+  $import[] = array('alprazolam' => 'Tenfree');
+  $import[] = array('alprazolam' => 'Tenfree SR');
+  $import[] = array('alprazolam' => 'Tenolam');
+  $import[] = array('alprazolam' => 'Tenrid');
+  $import[] = array('alprazolam' => 'Tenschem');
+  $import[] = array('alprazolam' => 'Tenscure');
+  $import[] = array('alprazolam' => 'Tensfree');
+  $import[] = array('alprazolam' => 'Tensyl');
+  $import[] = array('alprazolam' => 'Tenzo');
+  $import[] = array('alprazolam' => 'Texidep');
+  $import[] = array('alprazolam' => 'Tiox');
+  $import[] = array('alprazolam' => 'Tranax');
+  $import[] = array('alprazolam' => 'Tranisol');
+  $import[] = array('alprazolam' => 'Trans');
+  $import[] = array('alprazolam' => 'Trazopin');
+  $import[] = array('alprazolam' => 'Trika (Unichem)');
+  $import[] = array('alprazolam' => 'Trika (Vencare)');
+  $import[] = array('alprazolam' => 'Trika SR');
+  $import[] = array('alprazolam' => 'Tryzo');
+  $import[] = array('alprazolam' => 'Unixl SR');
+  $import[] = array('alprazolam' => 'Viprax');
+  $import[] = array('alprazolam' => 'Visram');
+  $import[] = array('alprazolam' => 'Welnorm');
+  $import[] = array('alprazolam' => 'Wycalm');
+  $import[] = array('alprazolam' => 'Wycalm Fort');
+  $import[] = array('alprazolam' => 'Xanti');
+  $import[] = array('alprazolam' => 'Xanti XR');
+  $import[] = array('alprazolam' => 'Xycalm');
+  $import[] = array('alprazolam' => 'Xylonite');
+  $import[] = array('alprazolam' => 'Zallpam');
+  $import[] = array('alprazolam' => 'Zam');
+  $import[] = array('alprazolam' => 'Zamitol');
+  $import[] = array('alprazolam' => 'Zamitol SR');
+  $import[] = array('alprazolam' => 'Zeecam');
+  $import[] = array('alprazolam' => 'Zeftra');
+  $import[] = array('alprazolam' => 'Zenax');
+  $import[] = array('alprazolam' => 'Zeprax');
+  $import[] = array('alprazolam' => 'Ziety');
+  $import[] = array('alprazolam' => 'Zocam');
+  $import[] = array('alprazolam' => 'Zodia DS');
+  $import[] = array('alprazolam' => 'Zoem');
+  $import[] = array('alprazolam' => 'Zola');
+  $import[] = array('alprazolam' => 'Zola D');
+  $import[] = array('alprazolam' => 'Zola DS');
+  $import[] = array('alprazolam' => 'Zolam (Stadmed)');
+  $import[] = array('alprazolam' => 'Zolam (Sun)');
+  $import[] = array('alprazolam' => 'Zolam SR');
+  $import[] = array('alprazolam' => 'Zolark');
+  $import[] = array('alprazolam' => 'Zolax (alprazolam)');
+  $import[] = array('alprazolam' => 'Zolax SR');
+  $import[] = array('alprazolam' => 'Zoldac');
+  $import[] = array('alprazolam' => 'Zoldac SR');
+  $import[] = array('alprazolam' => 'Zolent');
+  $import[] = array('alprazolam' => 'Zolent SR');
+  $import[] = array('alprazolam' => 'Zolin');
+  $import[] = array('alprazolam' => 'Zolin SR');
+  $import[] = array('alprazolam' => 'Zolipax');
+  $import[] = array('alprazolam' => 'Zolipax SR');
+  $import[] = array('alprazolam' => 'Zoloid');
+  $import[] = array('alprazolam' => 'Zolorel');
+  $import[] = array('alprazolam' => 'Zomark');
+  $import[] = array('alprazolam' => 'Zomark SR');
+  $import[] = array('alprazolam' => 'Zopain');
+  $import[] = array('alprazolam' => 'Zopam');
+  $import[] = array('alprazolam' => 'Zopic');
+  $import[] = array('alprazolam' => 'Zopral');
+  $import[] = array('alprazolam' => 'Zorest');
+  $import[] = array('alprazolam' => 'Zotam');
+  $import[] = array('alprazolam' => 'Zozo');
+  $import[] = array('amantadine' => 'Amantral');
+  $import[] = array('amantadine' => 'Amantrel');
+  $import[] = array('amantadine' => 'Comantrel');
+  $import[] = array('amantadine' => 'Neaman');
+  $import[] = array('amitripyline' => 'Abamax');
+  $import[] = array('amitripyline' => 'Amiline');
+  $import[] = array('amitripyline' => 'Amilite');
+  $import[] = array('amitripyline' => 'Amimax');
+  $import[] = array('amitripyline' => 'Amit');
+  $import[] = array('amitripyline' => 'Amitone');
+  $import[] = array('amitripyline' => 'Amitop');
+  $import[] = array('amitripyline' => 'Amitop SR');
+  $import[] = array('amitripyline' => 'Amitrac');
+  $import[] = array('amitripyline' => 'Amitryn');
+  $import[] = array('amitripyline' => 'Amitryptyline');
+  $import[] = array('amitripyline' => 'Amity');
+  $import[] = array('amitripyline' => 'Amiwel');
+  $import[] = array('amitripyline' => 'Amline');
+  $import[] = array('amitripyline' => 'Amoten');
+  $import[] = array('amitripyline' => 'Amrea');
+  $import[] = array('amitripyline' => 'Amsha');
+  $import[] = array('amitripyline' => 'Amsha Forte');
+  $import[] = array('amitripyline' => 'Amsha Plus');
+  $import[] = array('amitripyline' => 'Amtran');
+  $import[] = array('amitripyline' => 'Amypres');
+  $import[] = array('amitripyline' => 'Anitryp');
+  $import[] = array('amitripyline' => 'Axtrip');
+  $import[] = array('amitripyline' => 'Bluneel');
+  $import[] = array('amitripyline' => 'Cotrip');
+  $import[] = array('amitripyline' => 'Crypton');
+  $import[] = array('amitripyline' => 'Dep');
+  $import[] = array('amitripyline' => 'Dot Trip');
+  $import[] = array('amitripyline' => 'Elavin');
+  $import[] = array('amitripyline' => 'Eptanol');
+  $import[] = array('amitripyline' => 'Estiline');
+  $import[] = array('amitripyline' => 'Gentrip');
+  $import[] = array('amitripyline' => 'Gentrip SR');
+  $import[] = array('amitripyline' => 'Goldep SR');
+  $import[] = array('amitripyline' => 'Kamitrin');
+  $import[] = array('amitripyline' => 'Latilin');
+  $import[] = array('amitripyline' => 'Maxitrip');
+  $import[] = array('amitripyline' => 'Mitrip');
+  $import[] = array('amitripyline' => 'Mitrip SR');
+  $import[] = array('amitripyline' => 'Mitryp');
+  $import[] = array('amitripyline' => 'Nextrip');
+  $import[] = array('amitripyline' => 'Normaline');
+  $import[] = array('amitripyline' => 'Odep');
+  $import[] = array('amitripyline' => 'Pryl SR');
+  $import[] = array('amitripyline' => 'Psycomer');
+  $import[] = array('amitripyline' => 'Raitrip');
+  $import[] = array('amitripyline' => 'Relidep');
+  $import[] = array('amitripyline' => 'Ronet');
+  $import[] = array('amitripyline' => 'Sarotena (CFL)');
+  $import[] = array('amitripyline' => 'Sarotena (Lundbeck)');
+  $import[] = array('amitripyline' => 'Sereval');
+  $import[] = array('amitripyline' => 'Tablin');
+  $import[] = array('amitripyline' => 'Tadamit');
+  $import[] = array('amitripyline' => 'Teedep');
+  $import[] = array('amitripyline' => 'Tridep');
+  $import[] = array('amitripyline' => 'Trip (Jpee)');
+  $import[] = array('amitripyline' => 'Triplent');
+  $import[] = array('amitripyline' => 'Triplex');
+  $import[] = array('amitripyline' => 'Tryptomec');
+  $import[] = array('amitripyline' => 'Tryptomer');
+  $import[] = array('amitripyline' => 'Tryptomer SR');
+  $import[] = array('amitripyline' => 'Typlin');
+  $import[] = array('amitripyline' => 'Typlin OD');
+  $import[] = array('amitripyline' => 'Typteez');
+  $import[] = array('apomorphine' => 'Zyprima');
+  $import[] = array('aripiprazole' => 'Apicord');
+  $import[] = array('aripiprazole' => 'Arena');
+  $import[] = array('aripiprazole' => 'Aria');
+  $import[] = array('aripiprazole' => 'Aria (Intas)');
+  $import[] = array('aripiprazole' => 'Aria (Nicholas Piramal)');
+  $import[] = array('aripiprazole' => 'Aria (Ranbaxy)');
+  $import[] = array('aripiprazole' => 'Aridus');
+  $import[] = array('aripiprazole' => 'Aridus (Intas)');
+  $import[] = array('aripiprazole' => 'Aridus (Nicholas)');
+  $import[] = array('aripiprazole' => 'Arilan');
+  $import[] = array('aripiprazole' => 'Arilan (Alchem)');
+  $import[] = array('aripiprazole' => 'Arilan (Elite)');
+  $import[] = array('aripiprazole' => 'Arilan (Micro)');
+  $import[] = array('aripiprazole' => 'Arip MT');
+  $import[] = array('aripiprazole' => 'Aripat MD');
+  $import[] = array('aripiprazole' => 'Aripicon');
+  $import[] = array('aripiprazole' => 'Aripra');
+  $import[] = array('aripiprazole' => 'Aripra MT');
+  $import[] = array('aripiprazole' => 'Arive (Alkem)');
+  $import[] = array('aripiprazole' => 'Arive (Cadila)');
+  $import[] = array('aripiprazole' => 'Arive (Intas)');
+  $import[] = array('aripiprazole' => 'Arive (Micro)');
+  $import[] = array('aripiprazole' => 'Arize');
+  $import[] = array('aripiprazole' => 'Arol (aripiprazole)');
+  $import[] = array('aripiprazole' => 'Arole');
+  $import[] = array('aripiprazole' => 'Arpicin (Cinerea)');
+  $import[] = array('aripiprazole' => 'Arpicin (Nicholas)');
+  $import[] = array('aripiprazole' => 'Arpicin (Zydus)');
+  $import[] = array('aripiprazole' => 'Arpizol');
+  $import[] = array('aripiprazole' => 'Arza');
+  $import[] = array('aripiprazole' => 'Arzu');
+  $import[] = array('aripiprazole' => 'Asprito (Alkem)');
+  $import[] = array('aripiprazole' => 'Asprito (Intas)');
+  $import[] = array('aripiprazole' => 'Asprito (Zydus)');
+  $import[] = array('aripiprazole' => 'Biliff (Gentech)');
+  $import[] = array('aripiprazole' => 'Biliff (Glenmark)');
+  $import[] = array('aripiprazole' => 'Elrip (Elite)');
+  $import[] = array('aripiprazole' => 'Elrip (Nicholas)');
+  $import[] = array('aripiprazole' => 'Pipra A');
+  $import[] = array('aripiprazole' => 'Real One (Cadila)');
+  $import[] = array('aripiprazole' => 'Real One (Nicholas)');
+  $import[] = array('aripiprazole' => 'Real One (Zydus)');
+  $import[] = array('aripiprazole' => 'Rizotal');
+  $import[] = array('aripiprazole' => 'Schizopra (Cadila)');
+  $import[] = array('aripiprazole' => 'Schizopra (Cinerea)');
+  $import[] = array('aripiprazole' => 'Schizopra (Micro)');
+  $import[] = array('armodafinil' => 'Armod');
+  $import[] = array('armodafinil' => 'Biryth');
+  $import[] = array('armodafinil' => 'Waklert');
+  $import[] = array('asenapine' => 'Asenapt');
+  $import[] = array('atomoxetine' => 'Tomoxetin');
+  $import[] = array('baclofen' => 'Baclof OD');
+  $import[] = array('baclofen' => 'Bacmax');
+  $import[] = array('baclofen' => 'Chinofen');
+  $import[] = array('baclofen' => 'Liofen');
+  $import[] = array('baclofen' => 'Liofen XL');
+  $import[] = array('baclofen' => 'Parafon DSC');
+  $import[] = array('baclofen' => 'Riclofen');
+  $import[] = array('baclofen' => 'Spinofen');
+  $import[] = array('baclofen' => 'Spinospas');
+  $import[] = array('baclofen' => 'Tefsole');
+  $import[] = array('benserazide' => 'Manopar');
+  $import[] = array('bromocriptine' => 'B-Crip');
+  $import[] = array('bromocriptine' => 'Briptin');
+  $import[] = array('bromocriptine' => 'Brom');
+  $import[] = array('bromocriptine' => 'Bromocriptine Mesylate');
+  $import[] = array('bromocriptine' => 'Bromogen');
+  $import[] = array('bromocriptine' => 'Bromolact');
+  $import[] = array('bromocriptine' => 'Bromorex');
+  $import[] = array('bromocriptine' => 'Bromotin');
+  $import[] = array('bromocriptine' => 'Crip D2');
+  $import[] = array('bromocriptine' => 'Criptal');
+  $import[] = array('bromocriptine' => 'Encript');
+  $import[] = array('bromocriptine' => 'Kripti');
+  $import[] = array('bromocriptine' => 'Ovucript');
+  $import[] = array('bromocriptine' => 'Polodyl');
+  $import[] = array('bromocriptine' => 'Proctinal');
+  $import[] = array('bromocriptine' => 'Semi Brom');
+  $import[] = array('bromocriptine' => 'Sicriptin');
+  $import[] = array('buprenorphine' => 'Addnok');
+  $import[] = array('buprenorphine' => 'Bunogesic');
+  $import[] = array('buprenorphine' => 'Buprene');
+  $import[] = array('buprenorphine' => 'Buprigesic');
+  $import[] = array('buprenorphine' => 'Buprine');
+  $import[] = array('buprenorphine' => 'Buprinor');
+  $import[] = array('buprenorphine' => 'Morgesic');
+  $import[] = array('buprenorphine' => 'Norphin');
+  $import[] = array('buprenorphine' => 'Pentorel');
+  $import[] = array('buprenorphine' => 'Talgesic');
+  $import[] = array('buprenorphine' => 'Tidigesic');
+  $import[] = array('bupropion' => 'Bupdep');
+  $import[] = array('bupropion' => 'Bupep SR');
+  $import[] = array('bupropion' => 'Bupron SR');
+  $import[] = array('bupropion' => 'Ession ER');
+  $import[] = array('bupropion' => 'Nicotex');
+  $import[] = array('bupropion' => 'Nicotex SR');
+  $import[] = array('bupropion' => 'Nicotex SR FC');
+  $import[] = array('bupropion' => 'Smoquit SR');
+  $import[] = array('bupropion' => 'Unidep SR');
+  $import[] = array('buspirone' => 'Anxipar');
+  $import[] = array('buspirone' => 'Buscalm Forte');
+  $import[] = array('buspirone' => 'Buson');
+  $import[] = array('buspirone' => 'Buspidac');
+  $import[] = array('buspirone' => 'Buspin');
+  $import[] = array('buspirone' => 'Supiron B');
+  $import[] = array('buspirone' => 'Tamspar');
+  $import[] = array('butorphanol' => 'Butodol');
+  $import[] = array('butorphanol' => 'Butrum');
+  $import[] = array('cabergoline' => 'Cabgolin');
+  $import[] = array('cabergoline' => 'Cablyn');
+  $import[] = array('cabergoline' => 'Cabre');
+  $import[] = array('cabergoline' => 'Camforte');
+  $import[] = array('cabergoline' => 'CB Lin');
+  $import[] = array('cabergoline' => 'Colette');
+  $import[] = array('cabergoline' => 'Parcar');
+  $import[] = array('carbamazepine' => 'Acetol');
+  $import[] = array('carbamazepine' => 'Carbacontin');
+  $import[] = array('carbamazepine' => 'Carbatol');
+  $import[] = array('carbamazepine' => 'Carbdac');
+  $import[] = array('carbamazepine' => 'Carmaz');
+  $import[] = array('carbamazepine' => 'Carzep');
+  $import[] = array('carbamazepine' => 'Mazetol');
+  $import[] = array('carbamazepine' => 'Mazetol SR');
+  $import[] = array('carbamazepine' => 'Tegrital');
+  $import[] = array('carbamazepine' => 'Versitol');
+  $import[] = array('carbamazepine' => 'Zen');
+  $import[] = array('carbamazepine' => 'Zen Retard');
+  $import[] = array('carisoprodol' => 'Aciprodol');
+  $import[] = array('carisoprodol' => 'Carisol');
+  $import[] = array('chlordiazepoxide' => 'Anxizide');
+  $import[] = array('chlordiazepoxide' => 'Equilibrium');
+  $import[] = array('chlorpromazine' => 'Clozine Forte (Psychotropics)');
+  $import[] = array('chlorpromazine' => 'Clozine Plus');
+  $import[] = array('chlorpromazine' => 'Megatil');
+  $import[] = array('chlorpromazine' => 'Sun Prazin');
+  $import[] = array('citalopram' => 'C Pram');
+  $import[] = array('citalopram' => 'C Talo');
+  $import[] = array('citalopram' => 'Celepra');
+  $import[] = array('citalopram' => 'Celica');
+  $import[] = array('citalopram' => 'Celica FC');
+  $import[] = array('citalopram' => 'Cipam');
+  $import[] = array('citalopram' => 'Cipam S');
+  $import[] = array('citalopram' => 'Citadelm');
+  $import[] = array('citalopram' => 'Citadep');
+  $import[] = array('citalopram' => 'Citalent');
+  $import[] = array('citalopram' => 'Citalomine');
+  $import[] = array('citalopram' => 'Citalop');
+  $import[] = array('citalopram' => 'Citalop Tab');
+  $import[] = array('citalopram' => 'Citara');
+  $import[] = array('citalopram' => 'Citlop');
+  $import[] = array('citalopram' => 'Citola');
+  $import[] = array('citalopram' => 'Citopam');
+  $import[] = array('citalopram' => 'Cytop');
+  $import[] = array('citalopram' => 'Feliz');
+  $import[] = array('citalopram' => 'Frepram');
+  $import[] = array('citalopram' => 'Lopram');
+  $import[] = array('citalopram' => 'Madam');
+  $import[] = array('citalopram' => 'Pocital');
+  $import[] = array('citalopram' => 'Topdep');
+  $import[] = array('citalopram' => 'Ultidep');
+  $import[] = array('citalopram' => 'Zetalo');
+  $import[] = array('clomipramine' => 'Clofranil');
+  $import[] = array('clomipramine' => 'Clomi');
+  $import[] = array('clomipramine' => 'Clomifril');
+  $import[] = array('clomipramine' => 'Clomijet');
+  $import[] = array('clomipramine' => 'Clomilent');
+  $import[] = array('clomipramine' => 'Clomine');
+  $import[] = array('clomipramine' => 'Clomip');
+  $import[] = array('clomipramine' => 'Clomistar');
+  $import[] = array('clomipramine' => 'Clonil');
+  $import[] = array('clomipramine' => 'Clopic');
+  $import[] = array('clomipramine' => 'Ecmin');
+  $import[] = array('clomipramine' => 'Lodep');
+  $import[] = array('clomipramine' => 'Obsenil');
+  $import[] = array('clomipramine' => 'Ocifril');
+  $import[] = array('clomipramine' => 'Ocnil');
+  $import[] = array('clomipramine' => 'Remo');
+  $import[] = array('clomipramine' => 'Syconil');
+  $import[] = array('clomipramine' => 'Syconil FC');
+  $import[] = array('clomipramine' => 'Ultradep Plus');
+  $import[] = array('clonazepam' => 'Adnil');
+  $import[] = array('clonazepam' => 'Anxrea');
+  $import[] = array('clonazepam' => 'Azpax');
+  $import[] = array('clonazepam' => 'Calmnir');
+  $import[] = array('clonazepam' => 'Catier DT');
+  $import[] = array('clonazepam' => 'Cleps');
+  $import[] = array('clonazepam' => 'CLH MD');
+  $import[] = array('clonazepam' => 'Cloam');
+  $import[] = array('clonazepam' => 'Clon');
+  $import[] = array('clonazepam' => 'Clonapax');
+  $import[] = array('clonazepam' => 'Clonapax MD');
+  $import[] = array('clonazepam' => 'Clonapik');
+  $import[] = array('clonazepam' => 'Clonark MD');
+  $import[] = array('clonazepam' => 'Clonax');
+  $import[] = array('clonazepam' => 'Clonax MD');
+  $import[] = array('clonazepam' => 'Clonaxyl');
+  $import[] = array('clonazepam' => 'Cloneepam');
+  $import[] = array('clonazepam' => 'Clonopam');
+  $import[] = array('clonazepam' => 'Clonotril');
+  $import[] = array('clonazepam' => 'Clonzy');
+  $import[] = array('clonazepam' => 'Clopam');
+  $import[] = array('clonazepam' => 'Clopam Tab');
+  $import[] = array('clonazepam' => 'Closed');
+  $import[] = array('clonazepam' => 'Closis');
+  $import[] = array('clonazepam' => 'Clotas');
+  $import[] = array('clonazepam' => 'Cloze');
+  $import[] = array('clonazepam' => 'Cloze MD');
+  $import[] = array('clonazepam' => 'Clozep (Elite)');
+  $import[] = array('clonazepam' => 'Clozep (Esteem)');
+  $import[] = array('clonazepam' => 'Clozep DT (Elite)');
+  $import[] = array('clonazepam' => 'Clozep DT (Esteem)');
+  $import[] = array('clonazepam' => 'Clozorix');
+  $import[] = array('clonazepam' => 'Convaclon');
+  $import[] = array('clonazepam' => 'Cozil');
+  $import[] = array('clonazepam' => 'E-Cloz');
+  $import[] = array('clonazepam' => 'Easyfeel');
+  $import[] = array('clonazepam' => 'Epcon');
+  $import[] = array('clonazepam' => 'Epicloz');
+  $import[] = array('clonazepam' => 'Epilong');
+  $import[] = array('clonazepam' => 'Epitril');
+  $import[] = array('clonazepam' => 'Epizam');
+  $import[] = array('clonazepam' => 'Jasoclam');
+  $import[] = array('clonazepam' => 'Klopam');
+  $import[] = array('clonazepam' => 'Logen MD');
+  $import[] = array('clonazepam' => 'Lonazep');
+  $import[] = array('clonazepam' => 'Lonazep MD');
+  $import[] = array('clonazepam' => 'Lonin 05');
+  $import[] = array('clonazepam' => 'Lozep');
+  $import[] = array('clonazepam' => 'MD Calm');
+  $import[] = array('clonazepam' => 'Meloprax');
+  $import[] = array('clonazepam' => 'Melzap');
+  $import[] = array('clonazepam' => 'Nazee');
+  $import[] = array('clonazepam' => 'Norep');
+  $import[] = array('clonazepam' => 'Norep DT');
+  $import[] = array('clonazepam' => 'Nozim');
+  $import[] = array('clonazepam' => 'Nupam');
+  $import[] = array('clonazepam' => 'Onapil');
+  $import[] = array('clonazepam' => 'Ozepam');
+  $import[] = array('clonazepam' => 'Petril');
+  $import[] = array('clonazepam' => 'Petril MD');
+  $import[] = array('clonazepam' => 'Repam');
+  $import[] = array('clonazepam' => 'Sezolan');
+  $import[] = array('clonazepam' => 'Sezolep');
+  $import[] = array('clonazepam' => 'Ubitpam');
+  $import[] = array('clonazepam' => 'Xenotril SL');
+  $import[] = array('clonazepam' => 'Zee');
+  $import[] = array('clonazepam' => 'Zeficar');
+  $import[] = array('clonazepam' => 'Zepam');
+  $import[] = array('clonazepam' => 'Zepam MD');
+  $import[] = array('clonazepam' => 'Zeptril');
+  $import[] = array('clonazepam' => 'Zicam DT');
+  $import[] = array('clonazepam' => 'Zozep');
+  $import[] = array('clonidine' => 'Arkamin');
+  $import[] = array('clonidine' => 'Clodict');
+  $import[] = array('cyclobenzaprine' => 'Benzaday');
+  $import[] = array('cyclobenzaprine' => 'Flexabenz');
+  $import[] = array('cyclobenzaprine' => 'Flexabenz ER');
+  $import[] = array('cyclobenzaprine' => 'Mobrine IR');
+  $import[] = array('cyclobenzaprine' => 'Mobrine OD');
+  $import[] = array('cyclobenzaprine' => 'Skelebenz');
+  $import[] = array('dapoxetine' => 'Dapox');
+  $import[] = array('dapoxetine' => 'Dasutra');
+  $import[] = array('dapoxetine' => 'Duralast');
+  $import[] = array('dapoxetine' => 'Ejalong');
+  $import[] = array('dapoxetine' => 'Sustinex');
+  $import[] = array('desvenlafaxine' => 'Zyven OD');
+  $import[] = array('dexmedetomidine' => 'Dexem');
+  $import[] = array('dexmedetomidine' => 'Dextomid');
+  $import[] = array('dextromethorphan' => 'Alex');
+  $import[] = array('dextromethorphan' => 'Chericofs');
+  $import[] = array('dextromethorphan' => 'Cufcure Cough');
+  $import[] = array('dextromethorphan' => 'Dezex');
+  $import[] = array('dextromethorphan' => 'DMR');
+  $import[] = array('dextromethorphan' => 'Junirest');
+  $import[] = array('dextromethorphan' => 'Lastuss CT');
+  $import[] = array('dextromethorphan' => 'Lastuss LA');
+  $import[] = array('dextromethorphan' => 'Lexcofs');
+  $import[] = array('dextromethorphan' => 'Siades');
+  $import[] = array('dextromethorphan' => 'Supressa (Nicholas)');
+  $import[] = array('dextromethorphan' => 'Supressa (Sanofi)');
+  $import[] = array('dextromethorphan' => 'Tusstat');
+  $import[] = array('diazepam' => 'Almpose');
+  $import[] = array('diazepam' => 'Alpazepam');
+  $import[] = array('diazepam' => 'Alzepam');
+  $import[] = array('diazepam' => 'Anxol');
+  $import[] = array('diazepam' => 'Calmod');
+  $import[] = array('diazepam' => 'Calmpose');
+  $import[] = array('diazepam' => 'Calmtack');
+  $import[] = array('diazepam' => 'Cam');
+  $import[] = array('diazepam' => 'Campin');
+  $import[] = array('diazepam' => 'Camrelease TR');
+  $import[] = array('diazepam' => 'Daize');
+  $import[] = array('diazepam' => 'Diaclam');
+  $import[] = array('diazepam' => 'Diaz');
+  $import[] = array('diazepam' => 'Diaze');
+  $import[] = array('diazepam' => 'Diazecalm');
+  $import[] = array('diazepam' => 'Diazeco (Consern)');
+  $import[] = array('diazepam' => 'Diazeco (Ind-Swift)');
+  $import[] = array('diazepam' => 'Dipax');
+  $import[] = array('diazepam' => 'Direc 2');
+  $import[] = array('diazepam' => 'Dizapam');
+  $import[] = array('diazepam' => 'Dizep');
+  $import[] = array('diazepam' => 'Dizep P');
+  $import[] = array('diazepam' => 'Dizy');
+  $import[] = array('diazepam' => 'DPM');
+  $import[] = array('diazepam' => 'Elcion CR');
+  $import[] = array('diazepam' => 'Elpam');
+  $import[] = array('diazepam' => 'Elpose');
+  $import[] = array('diazepam' => 'Hypose');
+  $import[] = array('diazepam' => 'Juniz RDS');
+  $import[] = array('diazepam' => 'Karpam 5');
+  $import[] = array('diazepam' => 'Lakpam');
+  $import[] = array('diazepam' => 'Lori');
+  $import[] = array('diazepam' => 'Neomesmar');
+  $import[] = array('diazepam' => 'Nindral (diazepam)');
+  $import[] = array('diazepam' => 'Nupose');
+  $import[] = array('diazepam' => 'Osopose');
+  $import[] = array('diazepam' => 'Paci-Quil');
+  $import[] = array('diazepam' => 'Paciquil');
+  $import[] = array('diazepam' => 'Paxum');
+  $import[] = array('diazepam' => 'Peacin');
+  $import[] = array('diazepam' => 'Placidox (diazepam)');
+  $import[] = array('diazepam' => 'Ralium');
+  $import[] = array('diazepam' => 'Rec DZ');
+  $import[] = array('diazepam' => 'Silprex');
+  $import[] = array('diazepam' => 'Sleecalm');
+  $import[] = array('diazepam' => 'Sparlium');
+  $import[] = array('diazepam' => 'Starlium');
+  $import[] = array('diazepam' => 'Verzepam');
+  $import[] = array('diazepam' => 'Zeopse');
+  $import[] = array('diazepam' => 'Zepose');
+  $import[] = array('diazepam' => 'Zycalm');
+  $import[] = array('disulfiram' => 'Deadict');
+  $import[] = array('disulfiram' => 'Diabuse');
+  $import[] = array('disulfiram' => 'Tyfusin');
+  $import[] = array('divalproex' => 'D-Val ER');
+  $import[] = array('divalproex' => 'Desval ER');
+  $import[] = array('divalproex' => 'Develpin ER');
+  $import[] = array('divalproex' => 'Di Elival ER');
+  $import[] = array('divalproex' => 'Dicorate ER');
+  $import[] = array('divalproex' => 'Dilex');
+  $import[] = array('divalproex' => 'Diproex');
+  $import[] = array('divalproex' => 'Diproex ER');
+  $import[] = array('divalproex' => 'Discern');
+  $import[] = array('divalproex' => 'Diso');
+  $import[] = array('divalproex' => 'Disorate');
+  $import[] = array('divalproex' => 'Divaa');
+  $import[] = array('divalproex' => 'Divalex OD');
+  $import[] = array('divalproex' => 'Divalin ER');
+  $import[] = array('divalproex' => 'Divalin Ext Tab');
+  $import[] = array('divalproex' => 'Divalprid OD');
+  $import[] = array('divalproex' => 'Divalpro');
+  $import[] = array('divalproex' => 'Divalrate ER');
+  $import[] = array('divalproex' => 'Divanet OD');
+  $import[] = array('divalproex' => 'Dixval');
+  $import[] = array('divalproex' => 'Drvel ER');
+  $import[] = array('divalproex' => 'E-Valpo');
+  $import[] = array('divalproex' => 'Encorate');
+  $import[] = array('divalproex' => 'Encorate Chrono CR');
+  $import[] = array('divalproex' => 'Encorate Chrono SR');
+  $import[] = array('divalproex' => 'Epilex');
+  $import[] = array('divalproex' => 'Epilex EC (divalproex)');
+  $import[] = array('divalproex' => 'Epirate Chrono');
+  $import[] = array('divalproex' => 'Epirate SR 500');
+  $import[] = array('divalproex' => 'Epival');
+  $import[] = array('divalproex' => 'Epival EC');
+  $import[] = array('divalproex' => 'Epival ENT');
+  $import[] = array('divalproex' => 'Epsoval');
+  $import[] = array('divalproex' => 'Epsoval XR');
+  $import[] = array('divalproex' => 'Espoval');
+  $import[] = array('divalproex' => 'Genval OD');
+  $import[] = array('divalproex' => 'Jydival');
+  $import[] = array('divalproex' => 'Kayval');
+  $import[] = array('divalproex' => 'Manoval');
+  $import[] = array('divalproex' => 'Napilex');
+  $import[] = array('divalproex' => 'Navalin (divalproex)');
+  $import[] = array('divalproex' => 'Proval ER');
+  $import[] = array('divalproex' => 'Sezex');
+  $import[] = array('divalproex' => 'Sodaval SR');
+  $import[] = array('divalproex' => 'Sova Chrono');
+  $import[] = array('divalproex' => 'Spikalon');
+  $import[] = array('divalproex' => 'Spikalon DV ER');
+  $import[] = array('divalproex' => 'SV');
+  $import[] = array('divalproex' => 'Torvate (divalproex)');
+  $import[] = array('divalproex' => 'Trend XR');
+  $import[] = array('divalproex' => 'Trival CR');
+  $import[] = array('divalproex' => 'Val');
+  $import[] = array('divalproex' => 'Valance (Nicholas)');
+  $import[] = array('divalproex' => 'Valance (Piramel)');
+  $import[] = array('divalproex' => 'Valance OD');
+  $import[] = array('divalproex' => 'Valate');
+  $import[] = array('divalproex' => 'Valep Chrono');
+  $import[] = array('divalproex' => 'Valop');
+  $import[] = array('divalproex' => 'Valowin');
+  $import[] = array('divalproex' => 'Valp -ER');
+  $import[] = array('divalproex' => 'Valparin');
+  $import[] = array('divalproex' => 'Valparin Chrono 500');
+  $import[] = array('divalproex' => 'Valpex CR');
+  $import[] = array('divalproex' => 'Valpip Crono');
+  $import[] = array('divalproex' => 'Valporate Chrono (divalproex)');
+  $import[] = array('divalproex' => 'Valporil');
+  $import[] = array('divalproex' => 'Valporil CR');
+  $import[] = array('divalproex' => 'Valporl CR');
+  $import[] = array('divalproex' => 'Valprid');
+  $import[] = array('divalproex' => 'Valprid CR');
+  $import[] = array('divalproex' => 'Valprosh');
+  $import[] = array('divalproex' => 'Valprosh CR');
+  $import[] = array('divalproex' => 'Valrate CR');
+  $import[] = array('divalproex' => 'Valric');
+  $import[] = array('divalproex' => 'Valtaril');
+  $import[] = array('divalproex' => 'Valtec (Aronex)');
+  $import[] = array('divalproex' => 'Valtec (Cipla)');
+  $import[] = array('divalproex' => 'Valtril');
+  $import[] = array('divalproex' => 'Valvo CR');
+  $import[] = array('divalproex' => 'Velze');
+  $import[] = array('divalproex' => 'Vinchorate');
+  $import[] = array('divalproex' => 'VLP');
+  $import[] = array('divalproex' => 'Zoret');
+  $import[] = array('donepezil' => 'Alzil');
+  $import[] = array('donepezil' => 'Aricep');
+  $import[] = array('donepezil' => 'Demenza');
+  $import[] = array('donepezil' => 'Depzil');
+  $import[] = array('donepezil' => 'Donasure');
+  $import[] = array('donepezil' => 'Donaz');
+  $import[] = array('donepezil' => 'Donecept');
+  $import[] = array('donepezil' => 'Donep');
+  $import[] = array('donepezil' => 'Dopezil');
+  $import[] = array('donepezil' => 'Dorent');
+  $import[] = array('donepezil' => 'Nozil');
+  $import[] = array('donepezil' => 'Pezil');
+  $import[] = array('dosulepin' => 'Depthin');
+  $import[] = array('dosulepin' => 'Do-Re-Me');
+  $import[] = array('dosulepin' => 'Dopin (Ind-Swift)');
+  $import[] = array('dosulepin' => 'Dopin (Taj)');
+  $import[] = array('dosulepin' => 'Dore ME');
+  $import[] = array('dosulepin' => 'Doth');
+  $import[] = array('dosulepin' => 'Dotheris');
+  $import[] = array('dosulepin' => 'Dothimax');
+  $import[] = array('dosulepin' => 'Dothin');
+  $import[] = array('dosulepin' => 'Dothip');
+  $import[] = array('dosulepin' => 'Dothipop');
+  $import[] = array('dosulepin' => 'Dothitab');
+  $import[] = array('dosulepin' => 'Dothivin');
+  $import[] = array('dosulepin' => 'Dotin');
+  $import[] = array('dosulepin' => 'Dotipin');
+  $import[] = array('dosulepin' => 'Dozep');
+  $import[] = array('dosulepin' => 'Druthip (Lifecare Innovations)');
+  $import[] = array('dosulepin' => 'Druthip (LifeCare Labs)');
+  $import[] = array('dosulepin' => 'Edopin (Essweil)');
+  $import[] = array('dosulepin' => 'Edopin (Esteem)');
+  $import[] = array('dosulepin' => 'Elate');
+  $import[] = array('dosulepin' => 'Elden');
+  $import[] = array('dosulepin' => 'Exodep');
+  $import[] = array('dosulepin' => 'Glydot');
+  $import[] = array('dosulepin' => 'M Dothi');
+  $import[] = array('dosulepin' => 'Nexthpin');
+  $import[] = array('dosulepin' => 'Nudoth');
+  $import[] = array('dosulepin' => 'Pindep');
+  $import[] = array('dosulepin' => 'Prothiaden');
+  $import[] = array('dosulepin' => 'Thipin');
+  $import[] = array('doxepin' => 'Spectra');
+  $import[] = array('droperidol' => 'Droperol');
+  $import[] = array('duloxetine' => '2-Dep');
+  $import[] = array('duloxetine' => 'C Pact');
+  $import[] = array('duloxetine' => 'Combac (Consern)');
+  $import[] = array('duloxetine' => 'Combac (Reliance)');
+  $import[] = array('duloxetine' => 'Delok');
+  $import[] = array('duloxetine' => 'Deneurone');
+  $import[] = array('duloxetine' => 'Detine');
+  $import[] = array('duloxetine' => 'DLX');
+  $import[] = array('duloxetine' => 'Dulane');
+  $import[] = array('duloxetine' => 'Dulex');
+  $import[] = array('duloxetine' => 'Dulife');
+  $import[] = array('duloxetine' => 'Dulojoy');
+  $import[] = array('duloxetine' => 'Dulok');
+  $import[] = array('duloxetine' => 'Dulotin');
+  $import[] = array('duloxetine' => 'Duloxee');
+  $import[] = array('duloxetine' => 'Dultin');
+  $import[] = array('duloxetine' => 'Dulx');
+  $import[] = array('duloxetine' => 'Dumore');
+  $import[] = array('duloxetine' => 'Dupact');
+  $import[] = array('duloxetine' => 'Dureep');
+  $import[] = array('duloxetine' => 'Dutin');
+  $import[] = array('duloxetine' => 'Dutine');
+  $import[] = array('duloxetine' => 'Duxet');
+  $import[] = array('duloxetine' => 'Duzac');
+  $import[] = array('duloxetine' => 'Duzela');
+  $import[] = array('duloxetine' => 'DXT (Consern)');
+  $import[] = array('duloxetine' => 'DXT (Reliance)');
+  $import[] = array('duloxetine' => 'Nudep');
+  $import[] = array('duloxetine' => 'Sylonex');
+  $import[] = array('duloxetine' => 'Symbal');
+  $import[] = array('duloxetine' => 'Symbal M');
+  $import[] = array('duloxetine' => 'Sympta');
+  $import[] = array('duloxetine' => 'Ulozet');
+  $import[] = array('entacapone' => 'Adcapon');
+  $import[] = array('escitalopram' => 'Alwel (escitalopram)');
+  $import[] = array('escitalopram' => 'Ambulax AD');
+  $import[] = array('escitalopram' => 'Anipram');
+  $import[] = array('escitalopram' => 'Articalm');
+  $import[] = array('escitalopram' => 'Atpram');
+  $import[] = array('escitalopram' => 'Axipram');
+  $import[] = array('escitalopram' => 'C Pram S');
+  $import[] = array('escitalopram' => 'Celexa S');
+  $import[] = array('escitalopram' => 'Censpram');
+  $import[] = array('escitalopram' => 'Censpram Lite');
+  $import[] = array('escitalopram' => 'Cilentra');
+  $import[] = array('escitalopram' => 'Cit');
+  $import[] = array('escitalopram' => 'Cita S');
+  $import[] = array('escitalopram' => 'Citalop S');
+  $import[] = array('escitalopram' => 'Citel');
+  $import[] = array('escitalopram' => 'Citofast');
+  $import[] = array('escitalopram' => 'Citolex');
+  $import[] = array('escitalopram' => 'Cypram');
+  $import[] = array('escitalopram' => 'Depran');
+  $import[] = array('escitalopram' => 'Deptune');
+  $import[] = array('escitalopram' => 'Dexanil');
+  $import[] = array('escitalopram' => 'Ecit');
+  $import[] = array('escitalopram' => 'Ecitalop');
+  $import[] = array('escitalopram' => 'Elcit');
+  $import[] = array('escitalopram' => 'Endeo');
+  $import[] = array('escitalopram' => 'Escidant');
+  $import[] = array('escitalopram' => 'Escimax');
+  $import[] = array('escitalopram' => 'Escita');
+  $import[] = array('escitalopram' => 'Escitalent');
+  $import[] = array('escitalopram' => 'Escitapax');
+  $import[] = array('escitalopram' => 'Escitozan');
+  $import[] = array('escitalopram' => 'Escitrac');
+  $import[] = array('escitalopram' => 'Escopam');
+  $import[] = array('escitalopram' => 'Escytop');
+  $import[] = array('escitalopram' => 'Esdep');
+  $import[] = array('escitalopram' => 'Esfancy');
+  $import[] = array('escitalopram' => 'Esfany');
+  $import[] = array('escitalopram' => 'Esitopa');
+  $import[] = array('escitalopram' => 'Esitor');
+  $import[] = array('escitalopram' => 'Esivan');
+  $import[] = array('escitalopram' => 'Esjoy');
+  $import[] = array('escitalopram' => 'Eslika');
+  $import[] = array('escitalopram' => 'Esok');
+  $import[] = array('escitalopram' => 'Esopam');
+  $import[] = array('escitalopram' => 'Esopram');
+  $import[] = array('escitalopram' => 'Espancy');
+  $import[] = array('escitalopram' => 'Espar');
+  $import[] = array('escitalopram' => 'Espram');
+  $import[] = array('escitalopram' => 'Estal');
+  $import[] = array('escitalopram' => 'Estomine');
+  $import[] = array('escitalopram' => 'Excita');
+  $import[] = array('escitalopram' => 'Ezeepam');
+  $import[] = array('escitalopram' => 'Feliz S');
+  $import[] = array('escitalopram' => 'Firsito');
+  $import[] = array('escitalopram' => 'Jolivel');
+  $import[] = array('escitalopram' => 'Jopram');
+  $import[] = array('escitalopram' => 'Kopram');
+  $import[] = array('escitalopram' => 'Loptal');
+  $import[] = array('escitalopram' => 'Monopram');
+  $import[] = array('escitalopram' => 'Nestilo');
+  $import[] = array('escitalopram' => 'Nexito');
+  $import[] = array('escitalopram' => 'Nexpram');
+  $import[] = array('escitalopram' => 'Pocital S');
+  $import[] = array('escitalopram' => 'Pracidep S');
+  $import[] = array('escitalopram' => 'Prasilex');
+  $import[] = array('escitalopram' => 'Recita');
+  $import[] = array('escitalopram' => 'Rexipra');
+  $import[] = array('escitalopram' => 'Rhopram S');
+  $import[] = array('escitalopram' => 'S Celepra');
+  $import[] = array('escitalopram' => 'S Citadelm');
+  $import[] = array('escitalopram' => 'S Citadep');
+  $import[] = array('escitalopram' => 'S Citlop');
+  $import[] = array('escitalopram' => 'S Zetalo');
+  $import[] = array('escitalopram' => 'SC Talo');
+  $import[] = array('escitalopram' => 'Stalopam');
+  $import[] = array('escitalopram' => 'Szetalo');
+  $import[] = array('escitalopram' => 'Talo');
+  $import[] = array('escitalopram' => 'Topdep S');
+  $import[] = array('escitalopram' => 'Truzap');
+  $import[] = array('eszopiclone' => 'Bexomer');
+  $import[] = array('eszopiclone' => 'Fulnite');
+  $import[] = array('eszopiclone' => 'Zolnite');
+  $import[] = array('eszopiclone' => 'Zopimin S');
+  $import[] = array('ethylmorphine' => 'Acidion');
+  $import[] = array('ethylmorphine' => 'Dionindon (Indo)');
+  $import[] = array('ethylmorphine' => 'Dionindon (Zydus)');
+  $import[] = array('ethylmorphine' => 'Koxma');
+  $import[] = array('fentanyl' => 'Durogesic');
+  $import[] = array('fentanyl' => 'Fendrop');
+  $import[] = array('fentanyl' => 'Fenilate');
+  $import[] = array('fentanyl' => 'Fenstud');
+  $import[] = array('fentanyl' => 'Fent');
+  $import[] = array('fentanyl' => 'Trofentyl');
+  $import[] = array('fentanyl' => 'Verfen');
+  $import[] = array('flupenthixol' => 'Fluanxol Depot');
+  $import[] = array('flupenthixol' => 'Flupen (East West)');
+  $import[] = array('flupenthixol' => 'Flupen (Lifecare)');
+  $import[] = array('flupenthixol' => 'Pnxol');
+  $import[] = array('flupenthixol' => 'Spenzo');
+  $import[] = array('fluphenazine' => 'Anatensol (Abbott)');
+  $import[] = array('fluphenazine' => 'Anatensol (Nicholas Piramal)');
+  $import[] = array('fluphenazine' => 'Anatensol Decanoate');
+  $import[] = array('fluphenazine' => 'F-Tensil');
+  $import[] = array('fluphenazine' => 'Fludecan');
+  $import[] = array('fluphenazine' => 'Phenodec');
+  $import[] = array('fluphenazine' => 'Prolinate');
+  $import[] = array('flurazepam' => 'Fluraz');
+  $import[] = array('flurazepam' => 'Nindral (flurazepam)');
+  $import[] = array('flurazepam' => 'Zomnia (flurazepam)');
+  $import[] = array('fluvoxamine' => 'Boxamine');
+  $import[] = array('fluvoxamine' => 'Flumin');
+  $import[] = array('fluvoxamine' => 'Fluoxa');
+  $import[] = array('fluvoxamine' => 'Fluvator');
+  $import[] = array('fluvoxamine' => 'Fluvoxin');
+  $import[] = array('fluvoxamine' => 'Fluvoxin CR');
+  $import[] = array('fluvoxamine' => 'Foxa');
+  $import[] = array('fluvoxamine' => 'Frext');
+  $import[] = array('fluvoxamine' => 'Frext CR (Intas)');
+  $import[] = array('fluvoxamine' => 'Ocivox');
+  $import[] = array('fluvoxamine' => 'Psyvoxin');
+  $import[] = array('fluvoxamine' => 'Revilife');
+  $import[] = array('fluvoxamine' => 'Sorest');
+  $import[] = array('fluvoxamine' => 'Uvox');
+  $import[] = array('fluvoxamine' => 'Voxamin');
+  $import[] = array('fluvoxamine' => 'Voxanet');
+  $import[] = array('fosphenytoin' => 'Fosolin');
+  $import[] = array('fosphenytoin' => 'Fosphen');
+  $import[] = array('fosphenytoin' => 'Milorgen');
+  $import[] = array('gabapentin' => 'Dobin');
+  $import[] = array('gabapentin' => 'Encentin');
+  $import[] = array('gabapentin' => 'Gaba');
+  $import[] = array('gabapentin' => 'Gabacent');
+  $import[] = array('gabapentin' => 'Gabaciz');
+  $import[] = array('gabapentin' => 'Gabalept');
+  $import[] = array('gabapentin' => 'Gabantin');
+  $import[] = array('gabapentin' => 'Gabapin');
+  $import[] = array('gabapentin' => 'Gabapin SR');
+  $import[] = array('gabapentin' => 'Gabastar');
+  $import[] = array('gabapentin' => 'Gabata');
+  $import[] = array('gabapentin' => 'Gabatin');
+  $import[] = array('gabapentin' => 'Gabatol');
+  $import[] = array('gabapentin' => 'Gabator');
+  $import[] = array('gabapentin' => 'Gabex');
+  $import[] = array('gabapentin' => 'Gabin');
+  $import[] = array('gabapentin' => 'Gabtin (Auztus)');
+  $import[] = array('gabapentin' => 'Gabtin (West Coast)');
+  $import[] = array('gabapentin' => 'Gaby');
+  $import[] = array('gabapentin' => 'Gentin');
+  $import[] = array('gabapentin' => 'Goben');
+  $import[] = array('gabapentin' => 'Mygaba');
+  $import[] = array('gabapentin' => 'Neogaba');
+  $import[] = array('gabapentin' => 'Nervibrain');
+  $import[] = array('gabapentin' => 'Neupent AF');
+  $import[] = array('gabapentin' => 'Neuropentin');
+  $import[] = array('gabapentin' => 'Neuropin');
+  $import[] = array('gabapentin' => 'Nulex');
+  $import[] = array('gabapentin' => 'Rejunate');
+  $import[] = array('gabapentin' => 'Rejuron');
+  $import[] = array('gabapentin' => 'Sologab');
+  $import[] = array('gabapentin' => 'Templer');
+  $import[] = array('gabapentin' => 'Zepentine');
+  $import[] = array('gabapentin' => 'Zintigo');
+  $import[] = array('galantamine' => 'Galamer');
+  $import[] = array('haloperidol' => 'Agidol');
+  $import[] = array('haloperidol' => 'Benzydol P');
+  $import[] = array('haloperidol' => 'Brain Rest');
+  $import[] = array('haloperidol' => 'Cizonil');
+  $import[] = array('haloperidol' => 'Cizoren');
+  $import[] = array('haloperidol' => 'Depidol');
+  $import[] = array('haloperidol' => 'Depinase');
+  $import[] = array('haloperidol' => 'Epidol');
+  $import[] = array('haloperidol' => 'Estidol');
+  $import[] = array('haloperidol' => 'Gendol');
+  $import[] = array('haloperidol' => 'Gendol LA');
+  $import[] = array('haloperidol' => 'Halidace');
+  $import[] = array('haloperidol' => 'Halidol');
+  $import[] = array('haloperidol' => 'Halo (Halo)');
+  $import[] = array('haloperidol' => 'Halo (Suraksha)');
+  $import[] = array('haloperidol' => 'Halobid');
+  $import[] = array('haloperidol' => 'Haloday');
+  $import[] = array('haloperidol' => 'Halodi');
+  $import[] = array('haloperidol' => 'Halodil');
+  $import[] = array('haloperidol' => 'Halopace');
+  $import[] = array('haloperidol' => 'Haloperidol');
+  $import[] = array('haloperidol' => 'Halopidol');
+  $import[] = array('haloperidol' => 'Haloxel');
+  $import[] = array('haloperidol' => 'Hapiwin');
+  $import[] = array('haloperidol' => 'Haprol');
+  $import[] = array('haloperidol' => 'Helinase');
+  $import[] = array('haloperidol' => 'Hexidol');
+  $import[] = array('haloperidol' => 'Larenase');
+  $import[] = array('haloperidol' => 'Manonace');
+  $import[] = array('haloperidol' => 'Mindol');
+  $import[] = array('haloperidol' => 'Mindwel');
+  $import[] = array('haloperidol' => 'Nase');
+  $import[] = array('haloperidol' => 'Norma');
+  $import[] = array('haloperidol' => 'Normadol');
+  $import[] = array('haloperidol' => 'Normadol Forte');
+  $import[] = array('haloperidol' => 'Oprex');
+  $import[] = array('haloperidol' => 'Peridol (Densa)');
+  $import[] = array('haloperidol' => 'Peridol (Raikar)');
+  $import[] = array('haloperidol' => 'Relinase');
+  $import[] = array('haloperidol' => 'Relinase LA');
+  $import[] = array('haloperidol' => 'Salidol LA');
+  $import[] = array('haloperidol' => 'Schizol');
+  $import[] = array('haloperidol' => 'Senorm');
+  $import[] = array('haloperidol' => 'Senorm LA');
+  $import[] = array('haloperidol' => 'Seradol (Maneesh)');
+  $import[] = array('haloperidol' => 'Seradol (RPG)');
+  $import[] = array('haloperidol' => 'Sydol');
+  $import[] = array('haloperidol' => 'Sydol LA');
+  $import[] = array('haloperidol' => 'Talendol');
+  $import[] = array('haloperidol' => 'Trancodol');
+  $import[] = array('haloperidol' => 'Trancodol DT');
+  $import[] = array('haloperidol' => 'Triperidol (haloperidol)');
+  $import[] = array('haloperidol' => 'Worin');
+  $import[] = array('haloperidol' => 'Zor');
+  $import[] = array('haloperidol' => 'Zoridol');
+  $import[] = array('imipramine' => 'Antidep');
+  $import[] = array('imipramine' => 'Antipres');
+  $import[] = array('imipramine' => 'Depik');
+  $import[] = array('imipramine' => 'Depnil');
+  $import[] = array('imipramine' => 'Deprid');
+  $import[] = array('imipramine' => 'Depsin (imipramine)');
+  $import[] = array('imipramine' => 'Diamin');
+  $import[] = array('imipramine' => 'Elamin');
+  $import[] = array('imipramine' => 'Eldep (Pharmacia)');
+  $import[] = array('imipramine' => 'Eldep (Psychotropics)');
+  $import[] = array('imipramine' => 'Elidep');
+  $import[] = array('imipramine' => 'Estidep');
+  $import[] = array('imipramine' => 'Imikon');
+  $import[] = array('imipramine' => 'Imipra');
+  $import[] = array('imipramine' => 'Imprex');
+  $import[] = array('imipramine' => 'Imprin');
+  $import[] = array('imipramine' => 'IRA');
+  $import[] = array('imipramine' => 'Karthin');
+  $import[] = array('imipramine' => 'Manodep');
+  $import[] = array('imipramine' => 'Microdep');
+  $import[] = array('imipramine' => 'Min');
+  $import[] = array('imipramine' => 'Normadep');
+  $import[] = array('imipramine' => 'PIM (imipramine)');
+  $import[] = array('imipramine' => 'Talendep');
+  $import[] = array('ketamine' => 'Aneket');
+  $import[] = array('ketamine' => 'Anket');
+  $import[] = array('ketamine' => 'GB-Ket');
+  $import[] = array('ketamine' => 'Hypnoket');
+  $import[] = array('ketamine' => 'Keta');
+  $import[] = array('ketamine' => 'Keta V');
+  $import[] = array('ketamine' => 'Ketafast');
+  $import[] = array('ketamine' => 'Ketalin');
+  $import[] = array('ketamine' => 'Ketam (Inca)');
+  $import[] = array('ketamine' => 'Ketam (Sun)');
+  $import[] = array('ketamine' => 'Ketamax');
+  $import[] = array('ketamine' => 'Ketamine (Paksons)');
+  $import[] = array('ketamine' => 'Ketared');
+  $import[] = array('ketamine' => 'Ketasol');
+  $import[] = array('ketamine' => 'Ketmin');
+  $import[] = array('ketamine' => 'Ketolide');
+  $import[] = array('ketamine' => 'Ketotal');
+  $import[] = array('ketamine' => 'Ketsia');
+  $import[] = array('ketamine' => 'Kety');
+  $import[] = array('ketamine' => 'Kmine');
+  $import[] = array('ketamine' => 'Oblar');
+  $import[] = array('ketamine' => 'Rekita');
+  $import[] = array('ketamine' => 'Taurket');
+  $import[] = array('ketamine' => 'Verket');
+  $import[] = array('lamotrigine' => 'Epitic (lamotrigine)');
+  $import[] = array('lamotrigine' => 'L G DT (lamotrigine)');
+  $import[] = array('lamotrigine' => 'Lamepil (lamotrigine)');
+  $import[] = array('lamotrigine' => 'Lamepril MR (lamotrigine)');
+  $import[] = array('lamotrigine' => 'Lametec (lamotrigine)');
+  $import[] = array('lamotrigine' => 'Lametec DT (lamotrigine)');
+  $import[] = array('lamotrigine' => 'Lamitor DT');
+  $import[] = array('lamotrigine' => 'Lamorig (lamotrigine)');
+  $import[] = array('lamotrigine' => 'Lamosyn (lamotrigine)');
+  $import[] = array('lamotrigine' => 'Laogine (lamotrigine)');
+  $import[] = array('lamotrigine' => 'Lemit (lamotrigine)');
+  $import[] = array('lamotrigine' => 'Lemogen (lamotrigine)');
+  $import[] = array('lamotrigine' => 'Lemoring (lamotrigine)');
+  $import[] = array('levetiracetam' => 'Epictal');
+  $import[] = array('levetiracetam' => 'Epifast');
+  $import[] = array('levetiracetam' => 'Lenerve');
+  $import[] = array('levetiracetam' => 'Levecetam');
+  $import[] = array('levetiracetam' => 'Levesam');
+  $import[] = array('levetiracetam' => 'Levroxa');
+  $import[] = array('levetiracetam' => 'Levtam (Foreva)');
+  $import[] = array('levetiracetam' => 'Levtam (Unichem)');
+  $import[] = array('levetiracetam' => 'Torleva');
+  $import[] = array('levodopa' => 'Bidopal');
+  $import[] = array('levodopa' => 'Levopa');
+  $import[] = array('levothyroxine' => 'Roxin');
+  $import[] = array('levothyroxine' => 'Synox');
+  $import[] = array('levothyroxine' => 'Thyrochek');
+  $import[] = array('levothyroxine' => 'Thyrofit');
+  $import[] = array('levothyroxine' => 'Thyronorm');
+  $import[] = array('levothyroxine' => 'Thyrosec');
+  $import[] = array('levothyroxine' => 'Thyroup');
+  $import[] = array('levothyroxine' => 'Thyrowin');
+  $import[] = array('levothyroxine' => 'Thyrox');
+  $import[] = array('liothyronine' => 'Lethyrox');
+  $import[] = array('liothyronine' => 'Thormone');
+  $import[] = array('liothyronine' => 'Thyrobuild');
+  $import[] = array('liothyronine' => 'Thyrocon');
+  $import[] = array('liothyronine' => 'Thyroff');
+  $import[] = array('liothyronine' => 'Thyropil');
+  $import[] = array('lithium' => 'A-Lith');
+  $import[] = array('lithium' => 'Alkalith CR');
+  $import[] = array('lithium' => 'Elcab');
+  $import[] = array('lithium' => 'Genlith');
+  $import[] = array('lithium' => 'Indlith');
+  $import[] = array('lithium' => 'Intalith');
+  $import[] = array('lithium' => 'Lalithium');
+  $import[] = array('lithium' => 'Licab');
+  $import[] = array('lorazepam' => 'Anxilor');
+  $import[] = array('lorazepam' => 'Anxionil');
+  $import[] = array('lorazepam' => 'Anxipose');
+  $import[] = array('lorazepam' => 'Atipam');
+  $import[] = array('lorazepam' => 'Benj');
+  $import[] = array('lorazepam' => 'Biokalm');
+  $import[] = array('lorazepam' => 'Biolar 2');
+  $import[] = array('lorazepam' => 'Calmese');
+  $import[] = array('lorazepam' => 'L Pam');
+  $import[] = array('lorazepam' => 'Larosh');
+  $import[] = array('lorazepam' => 'Larpose');
+  $import[] = array('lorazepam' => 'Lopam');
+  $import[] = array('lorazepam' => 'Lopez');
+  $import[] = array('lorazepam' => 'Loracalm');
+  $import[] = array('lorazepam' => 'Lorakar-2');
+  $import[] = array('lorazepam' => 'Loralite');
+  $import[] = array('lorazepam' => 'Lorazine');
+  $import[] = array('lorazepam' => 'Lorel');
+  $import[] = array('lorazepam' => 'Loripam');
+  $import[] = array('lorazepam' => 'Loripam SL');
+  $import[] = array('lorazepam' => 'Lorpam');
+  $import[] = array('lorazepam' => 'Lorvin');
+  $import[] = array('lorazepam' => 'Norpose');
+  $import[] = array('lorazepam' => 'Olraz');
+  $import[] = array('lorazepam' => 'Trapex');
+  $import[] = array('lorazepam' => 'Urpam-1');
+  $import[] = array('lorazepam' => 'Zelor');
+  $import[] = array('lorazepam' => 'Zepnap');
+  $import[] = array('loxapine' => 'Enipaxol');
+  $import[] = array('loxapine' => 'Loxabol');
+  $import[] = array('loxapine' => 'Loxacon');
+  $import[] = array('loxapine' => 'Loxapac C');
+  $import[] = array('loxapine' => 'Loxip');
+  $import[] = array('loxapine' => 'Normapac');
+  $import[] = array('memantine' => 'Axura');
+  $import[] = array('memantine' => 'Mentadem');
+  $import[] = array('mianserin' => 'Depnon');
+  $import[] = array('mianserin' => 'Seridac');
+  $import[] = array('mianserin' => 'Tetradep');
+  $import[] = array('midazolam' => 'Benzosed');
+  $import[] = array('midazolam' => 'Fulsed');
+  $import[] = array('midazolam' => 'Mezolam');
+  $import[] = array('midazolam' => 'Miben');
+  $import[] = array('midazolam' => 'Midapic');
+  $import[] = array('midazolam' => 'Midaz');
+  $import[] = array('midazolam' => 'Midcalm');
+  $import[] = array('midazolam' => 'Midosed');
+  $import[] = array('midazolam' => 'Midzee');
+  $import[] = array('midazolam' => 'Midzol');
+  $import[] = array('midazolam' => 'Sedeven');
+  $import[] = array('midazolam' => 'Shortal');
+  $import[] = array('midazolam' => 'Verzol');
+  $import[] = array('milnacipran' => 'Acmil');
+  $import[] = array('milnacipran' => 'Milnace');
+  $import[] = array('mirtazapine' => 'Acudep');
+  $import[] = array('mirtazapine' => 'M Pine');
+  $import[] = array('mirtazapine' => 'Mastor');
+  $import[] = array('mirtazapine' => 'Matiz');
+  $import[] = array('mirtazapine' => 'Maz Tab');
+  $import[] = array('mirtazapine' => 'Miramind');
+  $import[] = array('mirtazapine' => 'Miraz');
+  $import[] = array('mirtazapine' => 'Mirazep');
+  $import[] = array('mirtazapine' => 'Mirnite');
+  $import[] = array('mirtazapine' => 'Mirpine');
+  $import[] = array('mirtazapine' => 'Mirt');
+  $import[] = array('mirtazapine' => 'Mirtadep (Elite)');
+  $import[] = array('mirtazapine' => 'Mirtadep (Unichem)');
+  $import[] = array('mirtazapine' => 'Mirtaz');
+  $import[] = array('mirtazapine' => 'Mirza');
+  $import[] = array('mirtazapine' => 'Mirzest');
+  $import[] = array('mirtazapine' => 'Mitab');
+  $import[] = array('mirtazapine' => 'Mizap');
+  $import[] = array('mirtazapine' => 'Nasdep');
+  $import[] = array('mirtazapine' => 'Nupine');
+  $import[] = array('mirtazapine' => 'Nutaz');
+  $import[] = array('mirtazapine' => 'Ristra (Sybiotec)');
+  $import[] = array('mirtazapine' => 'Ristra (Symbiosis)');
+  $import[] = array('mirtazapine' => 'Xavin');
+  $import[] = array('mirtazapine' => 'Zipdep');
+  $import[] = array('moclobemide' => 'Morex');
+  $import[] = array('moclobemide' => 'Rimarex');
+  $import[] = array('moclobemide' => 'Trima');
+  $import[] = array('modafinil' => 'Frext CR (Cipla)');
+  $import[] = array('modafinil' => 'Modapro');
+  $import[] = array('modafinil' => 'Modatec');
+  $import[] = array('modafinil' => 'Modfil');
+  $import[] = array('modafinil' => 'Provake');
+  $import[] = array('nalbuphine' => 'Rubuphine');
+  $import[] = array('naloxone' => 'Nalox');
+  $import[] = array('naloxone' => 'Narcotan');
+  $import[] = array('naloxone' => 'Nex 400');
+  $import[] = array('naltrexone' => 'Nalcon');
+  $import[] = array('naltrexone' => 'Naltima');
+  $import[] = array('naltrexone' => 'Naltrex');
+  $import[] = array('naltrexone' => 'Nodict');
+  $import[] = array('nitrazepam' => 'Baronite');
+  $import[] = array('nitrazepam' => 'Dormin');
+  $import[] = array('nitrazepam' => 'Dreem');
+  $import[] = array('nitrazepam' => 'Enzed');
+  $import[] = array('nitrazepam' => 'Gentravit');
+  $import[] = array('nitrazepam' => 'Hypnonex');
+  $import[] = array('nitrazepam' => 'Hypnoril');
+  $import[] = array('nitrazepam' => 'Hypnotex');
+  $import[] = array('nitrazepam' => 'Insomin Forte');
+  $import[] = array('nitrazepam' => 'Konit');
+  $import[] = array('nitrazepam' => 'Manonit');
+  $import[] = array('nitrazepam' => 'N Tra');
+  $import[] = array('nitrazepam' => 'Niavet');
+  $import[] = array('nitrazepam' => 'Nicare');
+  $import[] = array('nitrazepam' => 'Nigap');
+  $import[] = array('nitrazepam' => 'Nipam');
+  $import[] = array('nitrazepam' => 'Nirosun');
+  $import[] = array('nitrazepam' => 'Nit');
+  $import[] = array('nitrazepam' => 'Nitavan');
+  $import[] = array('nitrazepam' => 'Nite');
+  $import[] = array('nitrazepam' => 'Nithra');
+  $import[] = array('nitrazepam' => 'Nitrac 10');
+  $import[] = array('nitrazepam' => 'Nitram');
+  $import[] = array('nitrazepam' => 'Nitrapam (Elite)');
+  $import[] = array('nitrazepam' => 'Nitrapam (SP)');
+  $import[] = array('nitrazepam' => 'Nitraplan');
+  $import[] = array('nitrazepam' => 'Nitravet');
+  $import[] = array('nitrazepam' => 'Nitraz SR');
+  $import[] = array('nitrazepam' => 'Nitrazepam');
+  $import[] = array('nitrazepam' => 'Nitrosh');
+  $import[] = array('nitrazepam' => 'Nitrosum');
+  $import[] = array('nitrazepam' => 'Nitrosym');
+  $import[] = array('nitrazepam' => 'Nitzy');
+  $import[] = array('nitrazepam' => 'Sleeparm');
+  $import[] = array('nitrazepam' => 'Sleeparm 10');
+  $import[] = array('nitrazepam' => 'Stressban');
+  $import[] = array('nortriptyline' => 'Depival');
+  $import[] = array('nortriptyline' => 'Nordep');
+  $import[] = array('nortriptyline' => 'Nortin');
+  $import[] = array('nortriptyline' => 'Primox');
+  $import[] = array('nortriptyline' => 'Secmin-25');
+  $import[] = array('nortriptyline' => 'Sensaril');
+  $import[] = array('nortriptyline' => 'Trip (Pifer)');
+  $import[] = array('olanzapine' => 'Jolyon - Md');
+  $import[] = array('olanzapine' => 'Joyzol');
+  $import[] = array('olanzapine' => 'Olan');
+  $import[] = array('olanzapine' => 'Olandus');
+  $import[] = array('olanzapine' => 'Olanex');
+  $import[] = array('olanzapine' => 'Olanzotic');
+  $import[] = array('olanzapine' => 'Oleanz');
+  $import[] = array('olanzapine' => 'Oleanz Rapitab');
+  $import[] = array('olanzapine' => 'Olexar');
+  $import[] = array('olanzapine' => 'Oliza');
+  $import[] = array('olanzapine' => 'Onza');
+  $import[] = array('olanzapine' => 'Ozace');
+  $import[] = array('olanzapine' => 'Ozapin Md');
+  $import[] = array('olanzapine' => 'Psycholanz');
+  $import[] = array('olanzapine' => 'Psychozap');
+  $import[] = array('olanzapine' => 'Zypine');
+  $import[] = array('oxazepam' => 'Placidox (oxazepam)');
+  $import[] = array('oxcarbazepine' => 'Carbox');
+  $import[] = array('oxcarbazepine' => 'Exep');
+  $import[] = array('oxcarbazepine' => 'Mezalog');
+  $import[] = array('oxcarbazepine' => 'Oleptal');
+  $import[] = array('oxcarbazepine' => 'Oleptal DT');
+  $import[] = array('oxcarbazepine' => 'Oleptal OD');
+  $import[] = array('oxcarbazepine' => 'Oscar');
+  $import[] = array('oxcarbazepine' => 'Ox-Mezetol');
+  $import[] = array('oxcarbazepine' => 'Oxana');
+  $import[] = array('oxcarbazepine' => 'Oxana FC');
+  $import[] = array('oxcarbazepine' => 'Oxcarb');
+  $import[] = array('oxcarbazepine' => 'Oxcazo');
+  $import[] = array('oxcarbazepine' => 'Oxep');
+  $import[] = array('oxcarbazepine' => 'Oxeptal (Talent)');
+  $import[] = array('oxcarbazepine' => 'Oxeptal (Zydus)');
+  $import[] = array('oxcarbazepine' => 'Oxetol');
+  $import[] = array('oxcarbazepine' => 'Oxital (Talent)');
+  $import[] = array('oxcarbazepine' => 'Oxital (Zydus)');
+  $import[] = array('oxcarbazepine' => 'Oxmazetol SR');
+  $import[] = array('oxcarbazepine' => 'Oxpine');
+  $import[] = array('oxcarbazepine' => 'Oxrate');
+  $import[] = array('oxcarbazepine' => 'Oxycarb');
+  $import[] = array('oxcarbazepine' => 'Oxzey');
+  $import[] = array('oxcarbazepine' => 'Seizurone OX');
+  $import[] = array('oxcarbazepine' => 'Selzic');
+  $import[] = array('oxcarbazepine' => 'Zenoxa');
+  $import[] = array('oxcarbazepine' => 'Zepox');
+  $import[] = array('paliperidone' => 'Epitic (paliperidone)');
+  $import[] = array('paliperidone' => 'L G DT (paliperidone)');
+  $import[] = array('paliperidone' => 'Lamepil (paliperidone)');
+  $import[] = array('paliperidone' => 'Lamepril MR (paliperidone)');
+  $import[] = array('paliperidone' => 'Lametec (paliperidone)');
+  $import[] = array('paliperidone' => 'Lamidus DT (paliperidone)');
+  $import[] = array('paliperidone' => 'Lamitor OD');
+  $import[] = array('paliperidone' => 'Lamogin');
+  $import[] = array('paliperidone' => 'Lamorig (paliperidone)');
+  $import[] = array('paliperidone' => 'Lamosyn (paliperidone)');
+  $import[] = array('paliperidone' => 'Laogine (paliperidone)');
+  $import[] = array('paliperidone' => 'Lemit (paliperidone)');
+  $import[] = array('paliperidone' => 'Lemogen (paliperidone)');
+  $import[] = array('paliperidone' => 'Lemoring (paliperidone)');
+  $import[] = array('paliperidone' => 'Lyzin');
+  $import[] = array('paroxetine' => 'Baxidep CR');
+  $import[] = array('paroxetine' => 'Curetin');
+  $import[] = array('paroxetine' => 'Leparox');
+  $import[] = array('paroxetine' => 'Leparox SR');
+  $import[] = array('paroxetine' => 'Madotine');
+  $import[] = array('paroxetine' => 'Oxitine CR');
+  $import[] = array('paroxetine' => 'Oxitine PR');
+  $import[] = array('paroxetine' => 'Panex');
+  $import[] = array('paroxetine' => 'Paradise XR');
+  $import[] = array('paroxetine' => 'Pardep');
+  $import[] = array('paroxetine' => 'Pari');
+  $import[] = array('paroxetine' => 'Pari CR');
+  $import[] = array('paroxetine' => 'Parol-25 CR');
+  $import[] = array('paroxetine' => 'Paromec');
+  $import[] = array('paroxetine' => 'Parot');
+  $import[] = array('paroxetine' => 'Parotin');
+  $import[] = array('paroxetine' => 'Parotin CR');
+  $import[] = array('paroxetine' => 'Parotin FC');
+  $import[] = array('paroxetine' => 'Paroxet');
+  $import[] = array('paroxetine' => 'Paroxet SR');
+  $import[] = array('paroxetine' => 'Paxidep CR');
+  $import[] = array('paroxetine' => 'Petin CR');
+  $import[] = array('paroxetine' => 'Pexep');
+  $import[] = array('paroxetine' => 'Pexep CR');
+  $import[] = array('paroxetine' => 'Praxo');
+  $import[] = array('paroxetine' => 'PXT');
+  $import[] = array('paroxetine' => 'Raxit');
+  $import[] = array('paroxetine' => 'Sarolife');
+  $import[] = array('paroxetine' => 'Serotin');
+  $import[] = array('paroxetine' => 'Xepar');
+  $import[] = array('paroxetine' => 'Xet');
+  $import[] = array('pentazocine' => 'Cadiwin');
+  $import[] = array('pentazocine' => 'Forstar');
+  $import[] = array('pentazocine' => 'Fortagesic');
+  $import[] = array('pentazocine' => 'Fortstar');
+  $import[] = array('pentazocine' => 'Fortwin');
+  $import[] = array('pentazocine' => 'Laptol');
+  $import[] = array('pentazocine' => 'Pantazocine Lactate');
+  $import[] = array('pentazocine' => 'Pentalab');
+  $import[] = array('pentazocine' => 'Pentawin');
+  $import[] = array('pentazocine' => 'Penzyl');
+  $import[] = array('pentazocine' => 'Pzocin');
+  $import[] = array('pentazocine' => 'Riddof');
+  $import[] = array('pentazocine' => 'Ridoff');
+  $import[] = array('pentazocine' => 'Susevin');
+  $import[] = array('pentazocine' => 'Tozine');
+  $import[] = array('pentazocine' => 'Verpen');
+  $import[] = array('pentazocine' => 'Wintal');
+  $import[] = array('pentazocine' => 'Zocin');
+  $import[] = array('pethidine' => 'Verpat');
+  $import[] = array('phenobarbital' => 'Barbee');
+  $import[] = array('phenobarbital' => 'Barbinol');
+  $import[] = array('phenobarbital' => 'Emgard');
+  $import[] = array('phenobarbital' => 'Epidard');
+  $import[] = array('phenobarbital' => 'Epigard');
+  $import[] = array('phenobarbital' => 'Epikon');
+  $import[] = array('phenobarbital' => 'Epinil');
+  $import[] = array('phenobarbital' => 'Epitan');
+  $import[] = array('phenobarbital' => 'Fenobarb');
+  $import[] = array('phenobarbital' => 'G-30');
+  $import[] = array('phenobarbital' => 'G-60');
+  $import[] = array('phenobarbital' => 'Gee');
+  $import[] = array('phenobarbital' => 'Phenetone');
+  $import[] = array('phenobarbital' => 'Phenobarb');
+  $import[] = array('phenobarbital' => 'Phenobarbitone (Nicholas)');
+  $import[] = array('phenobarbital' => 'Phenobarbitone (Samarth)');
+  $import[] = array('phenobarbital' => 'Phenobarbitone (Unicure)');
+  $import[] = array('phenobarbital' => 'Shenobar');
+  $import[] = array('phenobarbital' => 'Shinosun');
+  $import[] = array('phenytoin' => 'Epileptin');
+  $import[] = array('phenytoin' => 'Epsolin');
+  $import[] = array('phenytoin' => 'Eptoin');
+  $import[] = array('phenytoin' => 'Fentoin Er');
+  $import[] = array('pimozide' => 'Mozep');
+  $import[] = array('pimozide' => 'Pimodac');
+  $import[] = array('piracetam' => 'Acter');
+  $import[] = array('piracetam' => 'Alcetam (Alkem)');
+  $import[] = array('piracetam' => 'Alcetam (Altius)');
+  $import[] = array('piracetam' => 'Amcetam (Ampus)');
+  $import[] = array('piracetam' => 'Amcetam (Redson)');
+  $import[] = array('piracetam' => 'Anitam');
+  $import[] = array('piracetam' => 'Antam');
+  $import[] = array('piracetam' => 'ATR');
+  $import[] = array('piracetam' => 'Axcetam');
+  $import[] = array('piracetam' => 'Axetam');
+  $import[] = array('piracetam' => 'Biocetam');
+  $import[] = array('piracetam' => 'Biotam');
+  $import[] = array('piracetam' => 'Braintam');
+  $import[] = array('piracetam' => 'Brentor (Concord)');
+  $import[] = array('piracetam' => 'Brentor (Zee)');
+  $import[] = array('piracetam' => 'Ceact');
+  $import[] = array('piracetam' => 'Cerabol');
+  $import[] = array('piracetam' => 'Cerecetam');
+  $import[] = array('piracetam' => 'Cerenorm');
+  $import[] = array('piracetam' => 'Ceretam');
+  $import[] = array('piracetam' => 'Cetam');
+  $import[] = array('piracetam' => 'Cetasmo');
+  $import[] = array('piracetam' => 'Cogmax');
+  $import[] = array('piracetam' => 'Corcetam');
+  $import[] = array('piracetam' => 'Dementa');
+  $import[] = array('piracetam' => 'Duracetam');
+  $import[] = array('piracetam' => 'E Tam');
+  $import[] = array('piracetam' => 'Encovit');
+  $import[] = array('piracetam' => 'Esitam');
+  $import[] = array('piracetam' => 'Etotam');
+  $import[] = array('piracetam' => 'Evitam');
+  $import[] = array('piracetam' => 'Excitam');
+  $import[] = array('piracetam' => 'Floracetam');
+  $import[] = array('piracetam' => 'Foxitam');
+  $import[] = array('piracetam' => 'Hicetam');
+  $import[] = array('piracetam' => 'Ienptam');
+  $import[] = array('piracetam' => 'J Cetam');
+  $import[] = array('piracetam' => 'Macetam');
+  $import[] = array('piracetam' => 'Marcetam');
+  $import[] = array('piracetam' => 'Maxitam');
+  $import[] = array('piracetam' => 'Mincetam');
+  $import[] = array('piracetam' => 'Neetam');
+  $import[] = array('piracetam' => 'Neucet');
+  $import[] = array('piracetam' => 'Neurobele');
+  $import[] = array('piracetam' => 'Neurocet');
+  $import[] = array('piracetam' => 'Neurocetam (Brown)');
+  $import[] = array('piracetam' => 'Neurocetam (Micro)');
+  $import[] = array('piracetam' => 'Neuromax');
+  $import[] = array('piracetam' => 'Neuronorm');
+  $import[] = array('piracetam' => 'Neurophil');
+  $import[] = array('piracetam' => 'Neuropil');
+  $import[] = array('piracetam' => 'Neuroserge');
+  $import[] = array('piracetam' => 'Neurospam');
+  $import[] = array('piracetam' => 'Neutal');
+  $import[] = array('piracetam' => 'Nextam');
+  $import[] = array('piracetam' => 'Nicetam');
+  $import[] = array('piracetam' => 'Nicetam Caps');
+  $import[] = array('piracetam' => 'Noofit');
+  $import[] = array('piracetam' => 'Nootropil (Adon)');
+  $import[] = array('piracetam' => 'Nootropil (UCB)');
+  $import[] = array('piracetam' => 'Nootropil Sachet');
+  $import[] = array('piracetam' => 'Normabrain');
+  $import[] = array('piracetam' => 'Normalite');
+  $import[] = array('piracetam' => 'Normenta');
+  $import[] = array('piracetam' => 'Nucetam');
+  $import[] = array('piracetam' => 'Nupic');
+  $import[] = array('piracetam' => 'Nurest');
+  $import[] = array('piracetam' => 'Nurobala');
+  $import[] = array('piracetam' => 'Nutam');
+  $import[] = array('piracetam' => 'Nutam FC');
+  $import[] = array('piracetam' => 'Nutropic');
+  $import[] = array('piracetam' => 'Olcitam');
+  $import[] = array('piracetam' => 'Orotam');
+  $import[] = array('piracetam' => 'Otam');
+  $import[] = array('piracetam' => 'Oxocetam');
+  $import[] = array('piracetam' => 'Pacitam');
+  $import[] = array('piracetam' => 'PCT');
+  $import[] = array('piracetam' => 'Pdneuro');
+  $import[] = array('piracetam' => 'Pentor');
+  $import[] = array('piracetam' => 'PIE');
+  $import[] = array('piracetam' => 'PIM (piracetam)');
+  $import[] = array('piracetam' => 'Pira');
+  $import[] = array('piracetam' => 'Pira OD');
+  $import[] = array('piracetam' => 'Pirac');
+  $import[] = array('piracetam' => 'Pirac Inf');
+  $import[] = array('piracetam' => 'Piracas');
+  $import[] = array('piracetam' => 'Piracer');
+  $import[] = array('piracetam' => 'Pirajet');
+  $import[] = array('piracetam' => 'Pirakar');
+  $import[] = array('piracetam' => 'Pirakar Forte');
+  $import[] = array('piracetam' => 'Pirakin');
+  $import[] = array('piracetam' => 'Piramax');
+  $import[] = array('piracetam' => 'Pirament');
+  $import[] = array('piracetam' => 'Piranis');
+  $import[] = array('piracetam' => 'Pirariv');
+  $import[] = array('piracetam' => 'Piratab');
+  $import[] = array('piracetam' => 'Piratam');
+  $import[] = array('piracetam' => 'Pirav');
+  $import[] = array('piracetam' => 'Pitam');
+  $import[] = array('piracetam' => 'Polcetam');
+  $import[] = array('piracetam' => 'Polytam');
+  $import[] = array('piracetam' => 'Psycopir');
+  $import[] = array('piracetam' => 'Psynep');
+  $import[] = array('piracetam' => 'PTM');
+  $import[] = array('piracetam' => 'Pvittam');
+  $import[] = array('piracetam' => 'Ractum');
+  $import[] = array('piracetam' => 'Rcetam');
+  $import[] = array('piracetam' => 'Renervol P');
+  $import[] = array('piracetam' => 'Retam');
+  $import[] = array('piracetam' => 'Stem');
+  $import[] = array('piracetam' => 'Sumocetam');
+  $import[] = array('piracetam' => 'Tam');
+  $import[] = array('piracetam' => 'Tampira');
+  $import[] = array('piracetam' => 'Ubittor');
+  $import[] = array('piracetam' => 'Ultacetam');
+  $import[] = array('piracetam' => 'Upcetam');
+  $import[] = array('piracetam' => 'Wincetam');
+  $import[] = array('piracetam' => 'Winrace');
+  $import[] = array('piracetam' => 'Zantam');
+  $import[] = array('piracetam' => 'Zetam');
+  $import[] = array('piracetam' => 'Zopres');
+  $import[] = array('pramipexole' => 'Parpex');
+  $import[] = array('pramipexole' => 'Pramipex');
+  $import[] = array('prazosin' => 'Cyber CR');
+  $import[] = array('prazosin' => 'Czoprexx XL');
+  $import[] = array('prazosin' => 'Prazocip XL');
+  $import[] = array('prazosin' => 'Prazopress');
+  $import[] = array('prazosin' => 'Prazopress XL');
+  $import[] = array('prazosin' => 'Prazovin XL');
+  $import[] = array('pregabalin' => 'Gabafit');
+  $import[] = array('pregabalin' => 'Gabamax');
+  $import[] = array('pregabalin' => 'Gabanext');
+  $import[] = array('pregabalin' => 'Gabasafe');
+  $import[] = array('pregabalin' => 'Galinerve (Sun Rise)');
+  $import[] = array('pregabalin' => 'Galinerve (Sun)');
+  $import[] = array('pregabalin' => 'Maxgalin');
+  $import[] = array('pregabalin' => 'Nuramed');
+  $import[] = array('pregabalin' => 'Pevesca');
+  $import[] = array('pregabalin' => 'Pregab');
+  $import[] = array('pregabalin' => 'Pregaba');
+  $import[] = array('pregabalin' => 'Pregabin');
+  $import[] = array('pregabalin' => 'Pregacon');
+  $import[] = array('pregabalin' => 'Pregalin Caps');
+  $import[] = array('pregabalin' => 'Preganerve');
+  $import[] = array('pregabalin' => 'Pregastar');
+  $import[] = array('pregabalin' => 'Pregeb');
+  $import[] = array('pregabalin' => 'Preneu');
+  $import[] = array('pregabalin' => 'Proage');
+  $import[] = array('pregabalin' => 'Progab');
+  $import[] = array('prochlorperazine' => 'Bukatel');
+  $import[] = array('prochlorperazine' => 'Emidoxyn');
+  $import[] = array('prochlorperazine' => 'Emidoxyn Forte');
+  $import[] = array('prochlorperazine' => 'Ingametil');
+  $import[] = array('prochlorperazine' => 'Meditil');
+  $import[] = array('propofol' => 'Celofol');
+  $import[] = array('propofol' => 'Critifol');
+  $import[] = array('propofol' => 'Fresofol');
+  $import[] = array('propofol' => 'Neorof');
+  $import[] = array('propofol' => 'Propovan');
+  $import[] = array('propofol' => 'Rofol');
+  $import[] = array('propoxyphene' => 'Parvodex');
+  $import[] = array('quetiapine' => 'Conquet');
+  $import[] = array('quetiapine' => 'Placidin');
+  $import[] = array('quetiapine' => 'Psyquit');
+  $import[] = array('quetiapine' => 'Q Pin');
+  $import[] = array('quetiapine' => 'Q-Mind');
+  $import[] = array('quetiapine' => 'Q-Win');
+  $import[] = array('quetiapine' => 'Quel');
+  $import[] = array('quetiapine' => 'Quel SR');
+  $import[] = array('quetiapine' => 'Quetic');
+  $import[] = array('quetiapine' => 'Queticare');
+  $import[] = array('quetiapine' => 'Qutace');
+  $import[] = array('quetiapine' => 'Qutan');
+  $import[] = array('quetiapine' => 'Qutec');
+  $import[] = array('quetiapine' => 'Quticool');
+  $import[] = array('quetiapine' => 'Qutipin (Sun)');
+  $import[] = array('quetiapine' => 'Qutipin (Symbiosis)');
+  $import[] = array('quetiapine' => 'Qutipin SR');
+  $import[] = array('quetiapine' => 'Seroquin');
+  $import[] = array('quetiapine' => 'Seroquin FC');
+  $import[] = array('quetiapine' => 'Sizoquit');
+  $import[] = array('quetiapine' => 'Socalm');
+  $import[] = array('rasagiline' => 'Relgin');
+  $import[] = array('reboxetine' => 'Narebox');
+  $import[] = array('reboxetine' => 'Reboot');
+  $import[] = array('reboxetine' => 'Rebotin');
+  $import[] = array('reboxetine' => 'Reboxxin');
+  $import[] = array('riluzole' => 'Rilutor');
+  $import[] = array('risperidone' => 'Benzix');
+  $import[] = array('risperidone' => 'Eauris');
+  $import[] = array('risperidone' => 'Genrest');
+  $import[] = array('risperidone' => 'Neudon');
+  $import[] = array('risperidone' => 'Nudon');
+  $import[] = array('risperidone' => 'Peridon');
+  $import[] = array('risperidone' => 'Phallus');
+  $import[] = array('risperidone' => 'Psydon');
+  $import[] = array('risperidone' => 'R-Don');
+  $import[] = array('risperidone' => 'Ragrace');
+  $import[] = array('risperidone' => 'Rasin');
+  $import[] = array('risperidone' => 'Regrace');
+  $import[] = array('risperidone' => 'Repid');
+  $import[] = array('risperidone' => 'Repridon MD');
+  $import[] = array('risperidone' => 'Rescalm DN');
+  $import[] = array('risperidone' => 'Respid');
+  $import[] = array('risperidone' => 'Respidon');
+  $import[] = array('risperidone' => 'Respijet');
+  $import[] = array('risperidone' => 'Respimed');
+  $import[] = array('risperidone' => 'Resqe');
+  $import[] = array('risperidone' => 'Resque');
+  $import[] = array('risperidone' => 'Retardon');
+  $import[] = array('risperidone' => 'RI');
+  $import[] = array('risperidone' => 'Ridon');
+  $import[] = array('risperidone' => 'Rion');
+  $import[] = array('risperidone' => 'Riposh');
+  $import[] = array('risperidone' => 'Riscalm');
+  $import[] = array('risperidone' => 'Risclam');
+  $import[] = array('risperidone' => 'Riscon');
+  $import[] = array('risperidone' => 'Risdone');
+  $import[] = array('risperidone' => 'Riskar');
+  $import[] = array('risperidone' => 'Risnia');
+  $import[] = array('risperidone' => 'Risperiv');
+  $import[] = array('risperidone' => 'Rispid');
+  $import[] = array('risperidone' => 'Rispond');
+  $import[] = array('risperidone' => 'Ristab');
+  $import[] = array('risperidone' => 'Ristal');
+  $import[] = array('risperidone' => 'Riszes');
+  $import[] = array('risperidone' => 'Rize (risperidone)');
+  $import[] = array('risperidone' => 'Rozidal');
+  $import[] = array('risperidone' => 'Shazone');
+  $import[] = array('risperidone' => 'Sizodon');
+  $import[] = array('risperidone' => 'Sizodon MD');
+  $import[] = array('risperidone' => 'Sizomax');
+  $import[] = array('risperidone' => 'Sperd');
+  $import[] = array('risperidone' => 'Speridon');
+  $import[] = array('risperidone' => 'Sycodone');
+  $import[] = array('risperidone' => 'Ubitdon');
+  $import[] = array('risperidone' => 'Zepid');
+  $import[] = array('risperidone' => 'Zisper MD');
+  $import[] = array('risperidone' => 'Zodon');
+  $import[] = array('risperidone' => 'Zon');
+  $import[] = array('rivastigmine' => 'Rivadem');
+  $import[] = array('rivastigmine' => 'Rivamer');
+  $import[] = array('rivastigmine' => 'Rivasmine');
+  $import[] = array('rivastigmine' => 'Srivasmine');
+  $import[] = array('rivastigmine' => 'Zeemine');
+  $import[] = array('ropinirole' => 'Parkirop');
+  $import[] = array('ropinirole' => 'Ropark');
+  $import[] = array('ropinirole' => 'Ropeway');
+  $import[] = array('ropinirole' => 'Ropin');
+  $import[] = array('ropinirole' => 'Ropitor');
+  $import[] = array('selegiline' => 'Elegelin');
+  $import[] = array('selegiline' => 'Jumax');
+  $import[] = array('selegiline' => 'Jumex (Sanofi)');
+  $import[] = array('selegiline' => 'Jumex (Torrent)');
+  $import[] = array('selegiline' => 'Selerin');
+  $import[] = array('selegiline' => 'Selgin');
+  $import[] = array('sertraline' => 'Actiser');
+  $import[] = array('sertraline' => 'Alin');
+  $import[] = array('sertraline' => 'Asert');
+  $import[] = array('sertraline' => 'Atline');
+  $import[] = array('sertraline' => 'Daxid');
+  $import[] = array('sertraline' => 'Dazolin');
+  $import[] = array('sertraline' => 'Denzy');
+  $import[] = array('sertraline' => 'Depsert');
+  $import[] = array('sertraline' => 'Episod');
+  $import[] = array('sertraline' => 'Inosert');
+  $import[] = array('sertraline' => 'Insert');
+  $import[] = array('sertraline' => 'Lindep');
+  $import[] = array('sertraline' => 'Mares');
+  $import[] = array('sertraline' => 'Medisert');
+  $import[] = array('sertraline' => 'Normaset');
+  $import[] = array('sertraline' => 'Obzin');
+  $import[] = array('sertraline' => 'Pifser');
+  $import[] = array('sertraline' => 'Resert');
+  $import[] = array('sertraline' => 'Restalin');
+  $import[] = array('sertraline' => 'Retalin');
+  $import[] = array('sertraline' => 'Senta');
+  $import[] = array('sertraline' => 'Serdep');
+  $import[] = array('sertraline' => 'Serenata');
+  $import[] = array('sertraline' => 'Serfia');
+  $import[] = array('sertraline' => 'Serjet');
+  $import[] = array('sertraline' => 'Serlift');
+  $import[] = array('sertraline' => 'Serlin');
+  $import[] = array('sertraline' => 'Serne');
+  $import[] = array('sertraline' => 'Seron');
+  $import[] = array('sertraline' => 'Serotra');
+  $import[] = array('sertraline' => 'Serpan');
+  $import[] = array('sertraline' => 'Serta');
+  $import[] = array('sertraline' => 'Sertaj');
+  $import[] = array('sertraline' => 'Sertakem');
+  $import[] = array('sertraline' => 'Sertawin');
+  $import[] = array('sertraline' => 'Sertee');
+  $import[] = array('sertraline' => 'Sertil');
+  $import[] = array('sertraline' => 'Sertim');
+  $import[] = array('sertraline' => 'Sertima');
+  $import[] = array('sertraline' => 'Sertimo');
+  $import[] = array('sertraline' => 'Sertin');
+  $import[] = array('sertraline' => 'Sertodep');
+  $import[] = array('sertraline' => 'Sertop');
+  $import[] = array('sertraline' => 'Sertosh');
+  $import[] = array('sertraline' => 'Serybest');
+  $import[] = array('sertraline' => 'Setal');
+  $import[] = array('sertraline' => 'Setalin');
+  $import[] = array('sertraline' => 'Setex');
+  $import[] = array('sertraline' => 'Setraline');
+  $import[] = array('sertraline' => 'Sezol');
+  $import[] = array('sertraline' => 'Srlin');
+  $import[] = array('sertraline' => 'Steel');
+  $import[] = array('sertraline' => 'Steet -50');
+  $import[] = array('sertraline' => 'Tralin');
+  $import[] = array('sertraline' => 'Xsert');
+  $import[] = array('sertraline' => 'Yline');
+  $import[] = array('sertraline' => 'Zert OD');
+  $import[] = array('sertraline' => 'Zoline');
+  $import[] = array('sertraline' => 'Zosert');
+  $import[] = array('sertraline' => 'Zotral');
+  $import[] = array('tapentadol' => 'Duovolt');
+  $import[] = array('tapentadol' => 'Tapal');
+  $import[] = array('tapentadol' => 'Transdol');
+  $import[] = array('tapentadol' => 'Tydol');
+  $import[] = array('tapentadol' => 'Xtradol');
+  $import[] = array('thalidomide' => 'Oncothal');
+  $import[] = array('thalidomide' => 'Talimyde');
+  $import[] = array('thalidomide' => 'Thaangio');
+  $import[] = array('thalidomide' => 'Thalix');
+  $import[] = array('thalidomide' => 'Thaloda');
+  $import[] = array('thalidomide' => 'Thalon');
+  $import[] = array('thalidomide' => 'Thycad');
+  $import[] = array('thalidomide' => 'Tolimid');
+  $import[] = array('thiopental' => 'Anesthal');
+  $import[] = array('thiopental' => 'Intraval Sodium (Piramal)');
+  $import[] = array('thiopental' => 'Intraval Sodium (Rhone)');
+  $import[] = array('thiopental' => 'Pentone');
+  $import[] = array('thiopental' => 'Thiosal');
+  $import[] = array('thiopental' => 'Thiosol');
+  $import[] = array('thiopental' => 'Thipen');
+  $import[] = array('thioridazine' => 'Iorid');
+  $import[] = array('thioridazine' => 'Melleril');
+  $import[] = array('thioridazine' => 'Melozine');
+  $import[] = array('thioridazine' => 'Ridazin');
+  $import[] = array('thioridazine' => 'Sychozine');
+  $import[] = array('thioridazine' => 'Sycoril');
+  $import[] = array('thioridazine' => 'Tensaril');
+  $import[] = array('thioridazine' => 'Thiolent');
+  $import[] = array('thioridazine' => 'Thiolite');
+  $import[] = array('thioridazine' => 'Thioril');
+  $import[] = array('thioridazine' => 'Thiozid');
+  $import[] = array('thioridazine' => 'Thoraplan');
+  $import[] = array('thioridazine' => 'Zeneril');
+  $import[] = array('thioridazine' => 'Zina');
+  $import[] = array('tiagabine' => 'Tigatel');
+  $import[] = array('topiramate' => 'Topper');
+  $import[] = array('tramadol' => 'Acupain');
+  $import[] = array('tramadol' => 'Anatram');
+  $import[] = array('tramadol' => 'Armadol');
+  $import[] = array('tramadol' => 'Asic');
+  $import[] = array('tramadol' => 'Atdol DT');
+  $import[] = array('tramadol' => 'Bestodol');
+  $import[] = array('tramadol' => 'Cemadol CR');
+  $import[] = array('tramadol' => 'Combitram');
+  $import[] = array('tramadol' => 'Contradoc');
+  $import[] = array('tramadol' => 'Cosdol');
+  $import[] = array('tramadol' => 'Damol');
+  $import[] = array('tramadol' => 'Damol SR');
+  $import[] = array('tramadol' => 'Decotram');
+  $import[] = array('tramadol' => 'Dolfre DT');
+  $import[] = array('tramadol' => 'Dolfre SR');
+  $import[] = array('tramadol' => 'Dolriz');
+  $import[] = array('tramadol' => 'Dolta');
+  $import[] = array('tramadol' => 'Domadol');
+  $import[] = array('tramadol' => 'Drobit');
+  $import[] = array('tramadol' => 'Eltram 50 DT');
+  $import[] = array('tramadol' => 'Eltram P');
+  $import[] = array('tramadol' => 'Euphodol');
+  $import[] = array('tramadol' => 'Hyperdol');
+  $import[] = array('tramadol' => 'Inodol');
+  $import[] = array('tramadol' => 'Ivydol SR');
+  $import[] = array('tramadol' => 'Jpdol');
+  $import[] = array('tramadol' => 'Mandol DT');
+  $import[] = array('tramadol' => 'Medol');
+  $import[] = array('tramadol' => 'Medol SR');
+  $import[] = array('tramadol' => 'Mydol');
+  $import[] = array('tramadol' => 'Nomadol');
+  $import[] = array('tramadol' => 'Nopidol');
+  $import[] = array('tramadol' => 'Novadol');
+  $import[] = array('tramadol' => 'OC-Dol');
+  $import[] = array('tramadol' => 'Odel');
+  $import[] = array('tramadol' => 'Ondol');
+  $import[] = array('tramadol' => 'Opi Ot');
+  $import[] = array('tramadol' => 'Opidol SR');
+  $import[] = array('tramadol' => 'Opigesic');
+  $import[] = array('tramadol' => 'Opiran (tramadol)');
+  $import[] = array('tramadol' => 'Orchidol');
+  $import[] = array('tramadol' => 'Painadol');
+  $import[] = array('tramadol' => 'Painadol SR');
+  $import[] = array('tramadol' => 'Paine');
+  $import[] = array('tramadol' => 'Postadol');
+  $import[] = array('tramadol' => 'Ramax');
+  $import[] = array('tramadol' => 'Redimol');
+  $import[] = array('tramadol' => 'Sayodol DT');
+  $import[] = array('tramadol' => 'Sedate');
+  $import[] = array('tramadol' => 'Simol');
+  $import[] = array('tramadol' => 'Soztram');
+  $import[] = array('tramadol' => 'Strom');
+  $import[] = array('tramadol' => 'T - Dol');
+  $import[] = array('tramadol' => 'Tandam');
+  $import[] = array('tramadol' => 'Tragesic');
+  $import[] = array('tramadol' => 'Tram (Alchemis)');
+  $import[] = array('tramadol' => 'Tram (Valiant)');
+  $import[] = array('tramadol' => 'Trama');
+  $import[] = array('tramadol' => 'Tramache');
+  $import[] = array('tramadol' => 'Tramacon');
+  $import[] = array('tramadol' => 'Tramacon DT');
+  $import[] = array('tramadol' => 'Tramacon SR');
+  $import[] = array('tramadol' => 'Tramaflam');
+  $import[] = array('tramadol' => 'Tramagesic');
+  $import[] = array('tramadol' => 'Tramak');
+  $import[] = array('tramadol' => 'Tramakind');
+  $import[] = array('tramadol' => 'Tramared');
+  $import[] = array('tramadol' => 'Tramasol');
+  $import[] = array('tramadol' => 'Tramataur');
+  $import[] = array('tramadol' => 'Tramataur SR');
+  $import[] = array('tramadol' => 'Trambax');
+  $import[] = array('tramadol' => 'Tramex Tab');
+  $import[] = array('tramadol' => 'Trami');
+  $import[] = array('tramadol' => 'Tramospas');
+  $import[] = array('tramadol' => 'Tramot');
+  $import[] = array('tramadol' => 'Tramp Tab');
+  $import[] = array('tramadol' => 'Trandy DT');
+  $import[] = array('tramadol' => 'Trasic');
+  $import[] = array('tramadol' => 'Trasic SR');
+  $import[] = array('tramadol' => 'Trazac');
+  $import[] = array('tramadol' => 'TRD-MD');
+  $import[] = array('tramadol' => 'Treat');
+  $import[] = array('tramadol' => 'Trim');
+  $import[] = array('tramadol' => 'Trofel');
+  $import[] = array('tramadol' => 'Troma');
+  $import[] = array('tramadol' => 'Tromar');
+  $import[] = array('tramadol' => 'Tromy DT');
+  $import[] = array('tramadol' => 'Trugesic');
+  $import[] = array('tramadol' => 'Trump');
+  $import[] = array('tramadol' => 'Ubitdol');
+  $import[] = array('tramadol' => 'Urgendol SR');
+  $import[] = array('tramadol' => 'Urgendol XL');
+  $import[] = array('tramadol' => 'Veeradol');
+  $import[] = array('tramadol' => 'Veeradol SR');
+  $import[] = array('tramadol' => 'Vegadol DT');
+  $import[] = array('tramadol' => 'Xtram');
+  $import[] = array('tramadol' => 'Zotadol');
+  $import[] = array('trazodone' => 'Depryl');
+  $import[] = array('trazodone' => 'Tazodac');
+  $import[] = array('trazodone' => 'Tragon');
+  $import[] = array('trazodone' => 'Trazalon');
+  $import[] = array('trazodone' => 'Trazan');
+  $import[] = array('trazodone' => 'Trazaril');
+  $import[] = array('trazodone' => 'Traze');
+  $import[] = array('trazodone' => 'Trazodep');
+  $import[] = array('trazodone' => 'Trazolite');
+  $import[] = array('trazodone' => 'Trazonil');
+  $import[] = array('trazodone' => 'Trittico (Dagon)');
+  $import[] = array('trazodone' => 'Trittico (Elder)');
+  $import[] = array('triclofos' => 'Foskid');
+  $import[] = array('triclofos' => 'Nucloryl');
+  $import[] = array('triclofos' => 'Pedicloryl Syrup');
+  $import[] = array('triclofos' => 'Silence');
+  $import[] = array('triclofos' => 'Tricloryl');
+  $import[] = array('triclofos' => 'Triclotross');
+  $import[] = array('trifluoperazine' => 'Dipicalm');
+  $import[] = array('trifluoperazine' => 'Elicalm');
+  $import[] = array('trifluoperazine' => 'Flucalm');
+  $import[] = array('trifluoperazine' => 'Gencalm');
+  $import[] = array('trifluoperazine' => 'Manocalm');
+  $import[] = array('trifluoperazine' => 'Neocalm');
+  $import[] = array('trifluoperazine' => 'Normacalm');
+  $import[] = array('trifluoperazine' => 'Psycalm');
+  $import[] = array('trifluoperazine' => 'Relicalm');
+  $import[] = array('trifluoperazine' => 'Selocalm');
+  $import[] = array('trifluoperazine' => 'Talecalm');
+  $import[] = array('trifluoperazine' => 'Trazine');
+  $import[] = array('trifluoperazine' => 'Trinicalm');
+  $import[] = array('triflupromazine' => 'Siquil');
+  $import[] = array('triflupromazine' => 'Suntulan');
+  $import[] = array('trihexiphenidyl' => 'Ancolin');
+  $import[] = array('trihexiphenidyl' => 'Antichol');
+  $import[] = array('trihexiphenidyl' => 'Arkane');
+  $import[] = array('trihexiphenidyl' => 'Barohexy');
+  $import[] = array('trihexiphenidyl' => 'Bexol');
+  $import[] = array('trihexiphenidyl' => 'Clozine Forte (Pharmacia)');
+  $import[] = array('trihexiphenidyl' => 'Dyskinil');
+  $import[] = array('trihexiphenidyl' => 'Dystonil');
+  $import[] = array('trihexiphenidyl' => 'Epsinil');
+  $import[] = array('trihexiphenidyl' => 'Hexydyl');
+  $import[] = array('trihexiphenidyl' => 'Hexylent');
+  $import[] = array('trihexiphenidyl' => 'Hexyriv 2');
+  $import[] = array('trihexiphenidyl' => 'Lahexy');
+  $import[] = array('trihexiphenidyl' => 'Manohexy');
+  $import[] = array('trihexiphenidyl' => 'Maphyl');
+  $import[] = array('trihexiphenidyl' => 'Pacidyl');
+  $import[] = array('trihexiphenidyl' => 'Pacitane');
+  $import[] = array('trihexiphenidyl' => 'Parales');
+  $import[] = array('trihexiphenidyl' => 'Parkin (trihexiphenidyl)');
+  $import[] = array('trihexiphenidyl' => 'Parkitane');
+  $import[] = array('trihexiphenidyl' => 'Parnon');
+  $import[] = array('trihexiphenidyl' => 'Ptempt');
+  $import[] = array('trihexiphenidyl' => 'Relihexy');
+  $import[] = array('trihexiphenidyl' => 'Seretane DT');
+  $import[] = array('trihexiphenidyl' => 'Texyl (Calyx)');
+  $import[] = array('trihexiphenidyl' => 'Texyl (Symbiosis)');
+  $import[] = array('trihexiphenidyl' => 'THP');
+  $import[] = array('trihexiphenidyl' => 'Tixil');
+  $import[] = array('trihexiphenidyl' => 'Tri-Ex');
+  $import[] = array('trihexiphenidyl' => 'Tridepinase');
+  $import[] = array('trihexiphenidyl' => 'Trihexiphenidyl');
+  $import[] = array('trihexiphenidyl' => 'Tryal');
+  $import[] = array('trihexiphenidyl' => 'TXP 2');
+  $import[] = array('trihexiphenidyl' => 'Zoxol');
+  $import[] = array('valproate' => 'Devot XL');
+  $import[] = array('valproate' => 'Epilex EC (valproate)');
+  $import[] = array('valproate' => 'Navalin (valproate)');
+  $import[] = array('valproate' => 'Torvate (valproate)');
+  $import[] = array('valproate' => 'Valcot CR');
+  $import[] = array('valproate' => 'Valporate Chrono (valproate)');
+  $import[] = array('varenicline' => 'Champix');
+  $import[] = array('venlafaxine' => 'Dalium');
+  $import[] = array('venlafaxine' => 'Envelaf');
+  $import[] = array('venlafaxine' => 'Flavix');
+  $import[] = array('venlafaxine' => 'Flavix XR');
+  $import[] = array('venlafaxine' => 'Sentosa');
+  $import[] = array('venlafaxine' => 'Sentosa ER');
+  $import[] = array('venlafaxine' => 'Velax SR');
+  $import[] = array('venlafaxine' => 'Velfex');
+  $import[] = array('venlafaxine' => 'Ven OD');
+  $import[] = array('venlafaxine' => 'Venaxin');
+  $import[] = array('venlafaxine' => 'Venaxin SR');
+  $import[] = array('venlafaxine' => 'Vendep XR');
+  $import[] = array('venlafaxine' => 'Venfax PR');
+  $import[] = array('venlafaxine' => 'Venish');
+  $import[] = array('venlafaxine' => 'Venish SR');
+  $import[] = array('venlafaxine' => 'Veniz XR');
+  $import[] = array('venlafaxine' => 'Venla');
+  $import[] = array('venlafaxine' => 'Venla Suscap');
+  $import[] = array('venlafaxine' => 'Venla XR');
+  $import[] = array('venlafaxine' => 'Venlift');
+  $import[] = array('venlafaxine' => 'Venlift OD');
+  $import[] = array('venlafaxine' => 'Venlor');
+  $import[] = array('venlafaxine' => 'Venlor XR');
+  $import[] = array('venlafaxine' => 'Venset');
+  $import[] = array('venlafaxine' => 'Venx');
+  $import[] = array('venlafaxine' => 'Vexor');
+  $import[] = array('zaleplon' => 'Hyplon');
+  $import[] = array('zaleplon' => 'Stilnite');
+  $import[] = array('zaleplon' => 'Zalep');
+  $import[] = array('zaleplon' => 'Zalpilo');
+  $import[] = array('zaleplon' => 'Zaplon');
+  $import[] = array('zaleplon' => 'Zaso');
+  $import[] = array('ziprasidone' => 'Azona (ziprasidone)');
+  $import[] = array('ziprasidone' => 'Zipsydon');
+  $import[] = array('zolpidem' => 'Ambiz');
+  $import[] = array('zolpidem' => 'Ambulax Z');
+  $import[] = array('zolpidem' => 'Azold');
+  $import[] = array('zolpidem' => 'Dactive');
+  $import[] = array('zolpidem' => 'Dem');
+  $import[] = array('zolpidem' => 'Getrest');
+  $import[] = array('zolpidem' => 'Insom ZD');
+  $import[] = array('zolpidem' => 'Isodem');
+  $import[] = array('zolpidem' => 'Kayzole');
+  $import[] = array('zolpidem' => 'Lipidem');
+  $import[] = array('zolpidem' => 'Lopitas');
+  $import[] = array('zolpidem' => 'Lypin');
+  $import[] = array('zolpidem' => 'Nidra');
+  $import[] = array('zolpidem' => 'Nitrest');
+  $import[] = array('zolpidem' => 'Olpid');
+  $import[] = array('zolpidem' => 'Pedo');
+  $import[] = array('zolpidem' => 'Restem');
+  $import[] = array('zolpidem' => 'Sobrium');
+  $import[] = array('zolpidem' => 'Sove');
+  $import[] = array('zolpidem' => 'Sove IT');
+  $import[] = array('zolpidem' => 'Soza');
+  $import[] = array('zolpidem' => 'Stilnoct CR');
+  $import[] = array('zolpidem' => 'Syzol');
+  $import[] = array('zolpidem' => 'Zanlop');
+  $import[] = array('zolpidem' => 'Zappy');
+  $import[] = array('zolpidem' => 'Zedem');
+  $import[] = array('zolpidem' => 'Zem');
+  $import[] = array('zolpidem' => 'Zleep');
+  $import[] = array('zolpidem' => 'Zodem');
+  $import[] = array('zolpidem' => 'Zolax (zolpidem)');
+  $import[] = array('zolpidem' => 'Zolcent');
+  $import[] = array('zolpidem' => 'Zoldem');
+  $import[] = array('zolpidem' => 'Zolep');
+  $import[] = array('zolpidem' => 'Zolfresh');
+  $import[] = array('zolpidem' => 'Zolip');
+  $import[] = array('zolpidem' => 'Zolit 10');
+  $import[] = array('zolpidem' => 'Zolnex');
+  $import[] = array('zolpidem' => 'Zolojet');
+  $import[] = array('zolpidem' => 'Zolp');
+  $import[] = array('zolpidem' => 'Zolpi');
+  $import[] = array('zolpidem' => 'Zolpiapt');
+  $import[] = array('zolpidem' => 'Zolpid');
+  $import[] = array('zolpidem' => 'Zolpirest');
+  $import[] = array('zolpidem' => 'Zolpistar');
+  $import[] = array('zolpidem' => 'Zolpitrac');
+  $import[] = array('zolpidem' => 'Zolway');
+  $import[] = array('zolpidem' => 'Zomnia (zolpidem)');
+  $import[] = array('zolpidem' => 'Zopid');
+  $import[] = array('zonisamide' => 'Zonicare');
+  $import[] = array('zonisamide' => 'Zonimid');
+  $import[] = array('zonisamide' => 'Zonisep');
+  $import[] = array('zonisamide' => 'Zonit');
+  $import[] = array('zopiclone' => 'Lyzop');
+  $import[] = array('zopiclone' => 'Zeclone');
+  $import[] = array('zopiclone' => 'Ziclone');
+  $import[] = array('zopiclone' => 'Zolinox');
+  $import[] = array('zopiclone' => 'Zolium');
+  $import[] = array('zopiclone' => 'Zolog');
+  $import[] = array('zopiclone' => 'Zonap');
+  $import[] = array('zopiclone' => 'Zopenta');
+  $import[] = array('zopiclone' => 'Zopicon');
+  $import[] = array('zopiclone' => 'Zopitran');
+  $import[] = array('zotepine' => 'Sirilept');
 
-  // Collect a list of tradename drugs.
+  // Collect a list of existing tradename drugs.
   $existing_tradenames = array();
   $results = db_query("SELECT title, nid FROM {node} WHERE type='drug'");
   while ($row = db_fetch_object($results)) {
     $existing_tradenames[strtolower($row->title)] = $row->nid;
   }
 
-  foreach ($tradenames as $trade) {
-    if (isset($existing_tradenames[strtolower($trade)])) {
-      dpr("$trade already exists in the database.");
+  // Collect a list of existing generic drugs.
+  $existing_generics = array();
+  $results = db_query("SELECT title, nid FROM {node} WHERE type='generic'");
+  while ($row = db_fetch_object($results)) {
+    $existing_generics[strtolower($row->title)] = $row->nid;
+  }
+
+  // Split import dataset up into generics and tradename drugs.
+  $import_generics = array();
+  $import_tradenames = array();
+
+  foreach($import as $index => $item) {
+    list ($generic, $tradename) = each($item);
+    // Check if this generic does not already exist in the system.
+    if (!isset($existing_generics[strtolower($generic)])) {
+      $import_generics[] = $generic;
+    }
+
+    // Check that the tradename is not duplicated in the import dataset and is
+    // not already in the system.
+    if (isset($import_tradenames[strtolower($tradename)])) {
+      dpr ("Error: $tradename is duplicated in the import dataset.");
+    }
+    elseif (isset($existing_tradenames[strtolower($tradename)])) {
+      dpr("Error: $tradename already exists in the system.");
+    }
+    else {
+      $import_tradenames[] = array(
+        'name' => $tradename,
+        'generic_id' => $existing_generics[strtolower($generic)],
+      );
+    }
+  }
+
+  // Import missing generics first.
+  $import_generics = array_unique(array_values($import_generics));
+  dpr($import_generics); exit;
+
+  if (!empty($import_generics)) {
+    foreach ($import_generics as $name) {
+      if ($id = bh_add_generic($name)) {
+        $existing_generics[strtolower[$name]] = $id;
+      }
+      else {
+        dpr("ERROR: when importing $name");
+      }
+    }
+
+    // Exit import so that we have the correct generic ID's associated with
+    // each tradename to be imported.
+    dpr('Imported missing generics. Rerun the import script to import tradename drugs.');
+    exit;
+  }
+  else {
+    dpr('Generics are up to date -- importing trade name drugs.');
+  }
+
+  // Now import tradename drugs and associated them with the generics.
+  foreach ($import_tradenames as $data) {
+    if ($id = bh_add_tradename($data['name'], $data['generic_id'])) {
+      $existing_tradenames[strtolower($data['name'])] = $id;
+    }
+    else {
+      dpr("ERROR: when importing " . $data['name']);
     }
   }
 
   dpr('done');
-
-
 
   exit;
 
