@@ -17,12 +17,12 @@
 
 function bh_import_menu () {
   $items = array();
-  $items['import_test'] = array(
-    'title' => 'test',
-    'description' => 'test',
-    'page callback' => 'bh_import_test',
-    'access arguments' => array('administer content'),
-  );
+  //$items['import_test'] = array(
+  //  'title' => 'test',
+  //  'description' => 'test',
+  //  'page callback' => 'bh_import_test',
+  //  'access arguments' => array('administer content'),
+  //);
   return ($items);
 }
 
