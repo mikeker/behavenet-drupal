@@ -2869,8 +2869,6 @@ function bh_import_test() {
 
   // Import missing generics first.
   $import_generics = array_unique(array_values($import_generics));
-  dpr($import_generics); exit;
-
   if (!empty($import_generics)) {
     foreach ($import_generics as $name) {
       if ($id = bh_add_generic($name)) {
@@ -2890,12 +2888,11 @@ function bh_import_test() {
     dpr('Generics are up to date -- importing trade name drugs.');
   }
 
-  exit;
-
   // Now import tradename drugs and associated them with the generics.
   foreach ($import_tradenames as $data) {
     if ($id = bh_add_tradename($data['name'], $data['generic_id'], $data['company_id'])) {
       $existing_tradenames[strtolower($data['name'])] = $id;
+      dpr("Imported: " . $data['name'] . " as /node/$id");
     }
     else {
       dpr("ERROR: when importing " . $data['name']);
