@@ -670,7 +670,7 @@ function general_content_default_panels_mini() {
   <a href="http://twitter.com/behavenet"><span class="social-media-icon social-media-icon-twitter"></span></a>Follow us on<br><a href="http://twitter.com/behavenet">Twitter</a>
 </div>
 <div class="social-media-links-row">
-  <a href="http://visitor.r20.constantcontact.com/d.jsp?llr=eiiozalab&p=oi&m=1111349469444"><span class="social-media-icon social-media-icon-email"></span></a>Sign up for our<br><a href="http://visitor.r20.constantcontact.com/d.jsp?llr=eiiozalab&p=oi&m=1111349469444">Newletter</a>
+  <a href="http://visitor.r20.constantcontact.com/d.jsp?llr=eiiozalab&p=oi&m=1111349469444"><span class="social-media-icon social-media-icon-email"></span></a>Subscribe (<a href="http://conta.cc/1UFVSnl">sample</a>)<br>to our <a href="http://visitor.r20.constantcontact.com/d.jsp?llr=eiiozalab&p=oi&m=1111349469444">Newletter</a>
 </div>
 <div class="social-media-links-row">
   <a href="http://behavenet.com/opinion/rss.xml"><span class="social-media-icon social-media-icon-rss"></span></a>Subscribe to our<br><a href="http://behavenet.com/opinion/rss.xml">Opinion blog</a>
