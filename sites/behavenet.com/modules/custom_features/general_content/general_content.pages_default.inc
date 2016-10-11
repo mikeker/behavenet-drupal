@@ -3233,7 +3233,7 @@ print behavenet_node_qr();
     $pane->configuration = array(
       'admin_title' => 'TherapySites ad',
       'title' => '',
-      'body' => '<a href="http://affiliates.therapysites.com/marketing/?utm_source=BN&utm_medium=email&utm_campaign=BDed&a_aid=8144&a_bid=3dd8338e"><img src="/sites/behavenet.com/themes/Behavenet/images/therapysites201610-300-250.jpg" /></a>',
+      'body' => '<a href="http://affiliates.therapysites.com/marketing/?utm_source=BN&utm_medium=email&utm_campaign=BDed&a_aid=8144&a_bid=3dd8338e"><img src="/sites/behavenet.com/themes/Behavenet/images/TS-300-250-201610.jpg" /></a>',
       'format' => '2',
       'substitute' => 0,
     );
